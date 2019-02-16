@@ -156,7 +156,7 @@ def action_seq(question):
     if userinput == '':
         print4 ("You forgot to tell me what to do!")
     # pick up item
-    elif any(elem in choice for elem in add_inventory):
+    elif any(elem in choice for elem in add_inventory) or "pick" and "up" in choice:
         current_action.append("pickup")
         if objectforsurroundings != '':
             inventory.append(objectforsurroundings)
@@ -171,34 +171,38 @@ def action_seq(question):
             surroundings.append(objectforinventory)
             inventory.remove(objectforinventory)
             print4 ("I've dropped the " + objectforinventory + ".")
-        elif inventory != '':
+        elif inventory == '':
+            print4 ("I'm not holding anything.")
+        elif len(inventory) != 0:
             print4 ("I've dropped the " + ''.join(inventory) + ".")
-            surroundings.append(inventory)
+            surroundings.append(''.join(inventory))
             inventory.clear()
         else:
             print4 ("Sorry, I'm not holding that right now.")
+    # go in a direction
     elif any(elem in choice for elem in travel):
         current_action.append("move")
         if commandfordirection != '':
-            print ("success in action_seq")
             return commandfordirection
+        elif "door" in choice:
+            return "door"
         elif all(elem in choice for elem in travel):
             print4 ("Whoops! You forgot to tell me which way to go!")
         else:
             print4 ("I don't understand. Please say something like 'go northeast' instead.")
     # open door
-    elif any(elem in choice for elem in door_open):
+    elif "open" in choice:
         current_action.append("open")
         if "open door" in surroundings:
             print4 ("The door is already open.")
         elif "smashed door" in surroundings:
             print4 ("The door is already broken open.")
-        elif inventory == '' and "open door" in surroundings:
+        elif len(inventory) == 0 and "closed door" in surroundings:
             surroundings.append("open door")
             surroundings.remove("closed door")
             print4 ("I've opened the door.")
-        elif inventory != '' and "closed door" in surroundings:
-            print4 ("I can't shut the door while I'm holding something.")
+        elif len(inventory) != 0 and "closed door" in surroundings:
+            print4 ("I can't open the door while I'm holding something.")
         else:
             print4 ("Sorry, I can't see a door anywhere around here.")
     # close door
@@ -207,21 +211,21 @@ def action_seq(question):
         if "closed door" in surroundings:
             print4 ("The door is already shut.")
         elif "smashed door" in surroundings:
-            print4 ("I can't shut a broken door.")
-        elif inventory == '' and "open door" in surroundings:
+            print4 ("I can't close a broken door.")
+        elif len(inventory) == 0 and "open door" in surroundings:
             surroundings.append("closed door")
             surroundings.remove("open door")
             print4 ("I've closed the door.")
-        elif inventory != '' and "open door" in surroundings:
+        elif len(inventory) != 0 and "open door" in surroundings:
             print4 ("I can't shut the door while I'm holding something.")
         else:
             print4 ("Sorry, I can't see a door anywhere around here.")
     # smash door
     elif any(elem in choice for elem in door_smash):
         current_action.append("smash")
-        if "sledgehammer" not in inventory:
+        if "sledgehammer" not in inventory and "sledgehammer" not in choice:
             print4 ("I don't have anything to smash the door with.")
-        elif "sledgehammer" in inventory and "closed door" or "open door" in surroundings:
+        elif "sledgehammer" in inventory or "sledgehammer" in choice and "closed door" or "open door" in surroundings:
             if "closed door" in surroundings:
                 surroundings.remove("closed door")
             elif "open door" in surroundings:
@@ -229,10 +233,10 @@ def action_seq(question):
             surroundings.append("smashed door")
             print4 ("I've smashed the door.")
         else:
-            print4 ("Sorry, I can't see a door anywhere near me.")
+            print4 ("Sorry, I can't see a door anywhere around here.")
     # help
     elif any(elem in choice for elem in search_valid):
-        print4 ("This sentence is supposed to be helpful. I hope it helped.")
+        print4 ("This was supposed to be helpful. I hope it helped.")
     # no command
     else:
         print4 ("I don't understand.")
@@ -246,19 +250,19 @@ def player_name(question):
     sys.stdout.write(question)
     playernameinput = input().strip()
     if playernameinput in not_telling_name:
-        print4 ("Oh. Ok. That's fine.")
+        print2 ("Oh. Ok. That's fine.")
         enter()
         pt_5()
     elif playernameinput in idk_name:
-        print4 ("I don't know who I am either.")
+        print2 ("I don't know who I am either.")
         enter()
         pt_5()
     elif playernameinput == '':
         player_name(question)
     elif playernameinput in search_valid:
         sys.stdout.write("\n"
-                         "You can say 'idk' and 'i dont know', or 'no', 'n', 'nope', 'nah', 'false', and 'not telling', or you can state your name.\n"
-                         "What would you like to say?\n"
+                         "> You can say 'idk' and 'i dont know', or 'no', 'n', 'nope', 'nah', 'false', and 'not telling', or you can state your name.\n"
+                         "> What would you like to say?\n"
                          "\n")
         player_name(question)
     else:
@@ -298,46 +302,45 @@ def game_over():
 
 # plays disconnecting
 def disconnecting():
-    print ("Disconnecting in 3...")
-    print2 ("Press enter to continue or 'n' to cancel disconnection")
+    print ("> Disconnecting in 3...")
+    print2 ("> Press enter to continue or 'n' to cancel disconnection")
     answer = stopgo_query("> ", "yes")
     if answer:
         clear_screen()
-        print1 ("...2...")
+        print1 ("> ...2...")
         answer = stopgo_query("> ", "yes")
         if answer:
             clear_screen()
-            print1 ("...1...")
+            print1 ("> ...1...")
             answer = stopgo_query("> ", "yes")
             if answer:
                 clear_screen()
-                print ("Connection lost.")
+                print1 ("> Connection lost.")
                 game_over()
             if not answer:
-                print ()
-                print ("Connection corrupted. Unable to restore.")
+                print2 ("> Connection corrupted. Unable to restore.")
                 game_over()
         if not answer:
-            print2 ("Connection corrupted. Attempt to restore?")
+            print2 ("> Connection corrupted. Attempt to restore?")
             answer = yn_query("> ")
             if answer:
                 clear_screen()
-                print ("Attempting to restore connection...")
+                print1 ("> Attempting to restore connection...")
                 enter()
                 clear_screen()
                 number = random.randint(0,9)
                 if number >= 5:
-                    print ("Attempt failed. Connection lost.")
+                    print1 ("> Attempt failed. Connection lost.")
                     game_over()
                 else:
-                    print ("Attempt successful. Connection restored.")
+                    print1 ("> Attempt successful. Connection restored.")
                     enter()
                     print ("Oh, you're back.")
                     disconnecting= False
             if not answer:
                 game_over()
     if not answer:
-        print4 ("Connection restored.")
+        print2 ("> Connection restored.")
         enter()
         print ("Oh, you're back.")
         disconnecting = False
@@ -405,7 +408,7 @@ def pt_5():
         print4 ("Ok then! Let's do this.")
         rm_1_closed_door_a()
     if not answer:
-        print4 ("Oh. Ok. Goodbye.")
+        print2 ("Oh. Ok. Goodbye.")
         enter ()
         disconnected = disconnecting()
         if not disconnected:
@@ -416,35 +419,47 @@ def pt_5():
 
 # open world room 1
 def next_room_sledge():
-    current_action.clear()
+    if len(inventory) != 0:
+        holding = " holding a " + ''.join(inventory)
+    else:
+        holding = ''
     if "closed door" in surroundings:
         door_status = "closed door"
-    if "open door" in surroundings:
+    elif "open door" in surroundings:
         door_status = "open door"
-    if "smashed door" in surroundings:
+    elif "smashed door" in surroundings:
         door_status = "broken door"
     if "sledgehammer" in surroundings:
         near_me = " and a sledgehammer near me"
     else:
         near_me = ''
-    print ("I'm in a room with a " + door_status + " to the north" + near_me + ".")
+    print ("I'm" + holding + " in a room with a " + door_status + " to the north" + near_me + ".")
     print1 ("What should I do?")
     answer_action = action_seq('')
-    if current_action == "move":
-        print ("success in move")
+    if "move" in current_action:
         current_action.clear()
         if any(elem in answer_action for elem in north) and 'closed door' in surroundings:
             print4 ("I can't go through a closed door.")
             next_room_sledge()
         elif any(elem in answer_action for elem in north) and 'closed door' not in surroundings:
-            print4 ("Moving north.")
+            print2 ("Moving north.")
+            enter()
             rm_2()
+        elif "door" in answer_action and "closed door" not in surroundings:
+            print2 ("Going through the door.")
+            enter()
+            rm_2()
+        elif "door" in answer_action and "closed door" in surroundings:
+            print4 ("I can't go through a closed door.")
+            next_room_sledge()
         else:
             print4 ("There's a wall there. I can't go that way.")
             next_room_sledge()
-    if current_action == "pickup" or "smash" or "drop" or "open" or "close":
+    elif "pickup" or "smash" or "drop" or "open" or "close" in current_action:
         current_action.clear()
         next_room_sledge()
+    else:
+        print4 ("[[[INVALID ACTION]]]")
 
 # open world room 1
 def rm_1_closed_door_a():
@@ -473,5 +488,4 @@ def rm_2():
         print1 ("okireallygottagothanksagain" + playernameused + "bye")
     game_over()
 
-print ()
-rm_1_closed_door_a()
+pt_1()

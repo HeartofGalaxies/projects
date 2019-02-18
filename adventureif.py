@@ -97,20 +97,20 @@ def yn_query(question, default=None):
 
     while True:
         sys.stdout.write(prompt + question)
-        choice = input().lower()
+        choice = input().lower().strip()
         if default is not None and choice == '':
             return valid[default]
         elif choice in valid:
             return valid[choice]
         elif choice in search_valid:
             sys.stdout.write("\n"
-                             "You can say 'yes', 'y', 'ye', 'yea', 'yeah', 'yep', 'yup', 'sure', 'ok', 'fine', and 'true', or "
+                             "> You can say 'yes', 'y', 'ye', 'yea', 'yeah', 'yep', 'yup', 'sure', 'ok', 'fine', and 'true', or "
                              "'no', 'n', 'nope', 'nah', 'not yet', 'retry', and 'false'.\n"
-                             "What would you like to say?\n"
+                             "> What would you like to say?\n"
                              "\n")
         else:
             sys.stdout.write("\n"
-                             "Please respond with 'yes' or 'no' "
+                             "> Please respond with 'yes' or 'no' "
                              "(or 'y' or 'n'). Type 'help' to see more options\n"
                              "\n")
 
@@ -129,32 +129,32 @@ def stopgo_query(question, default=None):
 
     while True:
         sys.stdout.write(prompt + question)
-        choice = input().lower()
+        choice = input().lower().strip()
         if default is not None and choice == '':
             return valid[default]
         elif choice in valid:
             return valid[choice]
         elif choice in search_valid:
             sys.stdout.write("\n"
-                             "You can say 'yes', 'y', 'ye', 'yea', 'yeah', 'yep', 'yup', 'sure', 'ok', 'fine', 'true', 'keep going', 'proceed', 'start', 'go', 'continue', 'begin', and 'on' or "
+                             "> You can say 'yes', 'y', 'ye', 'yea', 'yeah', 'yep', 'yup', 'sure', 'ok', 'fine', 'true', 'keep going', 'proceed', 'start', 'go', 'continue', 'begin', and 'on' or "
                              "('no', 'n', 'nope', 'nah', 'not yet', 'retry', 'false', 'stop', 'halt', 'finish', 'end', 'stay', 'off', 'restore', and 'cancel'.\n"
-                             "What would you like to say?\n"
+                             "> What would you like to say?\n"
                              "\n")
         else:
-            sys.stdout.write("Please respond with 'yes' or 'no' "
+            sys.stdout.write("> Please respond with 'yes' or 'no' "
                              "(or 'y' or 'n'). Type 'help' to see more options\n")
 
-def action_seq(question):
+def action_seq():
     current_action.clear()
-    sys.stdout.write(question)
-    userinput = input("> ").lower()
+    #sys.stdout.write(question)
+    userinput = input("> ").lower().strip()
     choice = userinput.split()
     objectforsurroundings = ''.join(set(choice).intersection(surroundings))
     objectforinventory = ''.join(set(choice).intersection(inventory))
     commandfordirection = ''.join(set(choice).intersection(direction))
     # if no command
     if userinput == '':
-        print4 ("You forgot to tell me what to do!")
+        action_seq()
     # pick up item
     elif any(elem in choice for elem in add_inventory) or "pick" and "up" in choice:
         current_action.append("pickup")
@@ -303,7 +303,7 @@ def game_over():
 # plays disconnecting
 def disconnecting():
     print ("> Disconnecting in 3...")
-    print2 ("> Press enter to continue or 'n' to cancel disconnection")
+    print2 ("> Press enter to continue or 'stop' to cancel disconnection")
     answer = stopgo_query("> ", "yes")
     if answer:
         clear_screen()
@@ -435,7 +435,7 @@ def next_room_sledge():
         near_me = ''
     print ("I'm" + holding + " in a room with a " + door_status + " to the north" + near_me + ".")
     print1 ("What should I do?")
-    answer_action = action_seq('')
+    answer_action = action_seq()
     if "move" in current_action:
         current_action.clear()
         if any(elem in answer_action for elem in north) and 'closed door' in surroundings:
@@ -471,7 +471,7 @@ def rm_1_closed_door_a():
 
 # scripted room 2
 def rm_2():
-    playernameused = makes_name().lower()
+    playernameused = makes_name().lower().strip()
     current_action.clear()
     surroundings.clear()
     print ("Hey look! I see a piece of paper.")

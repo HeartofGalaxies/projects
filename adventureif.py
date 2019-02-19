@@ -4,20 +4,20 @@ import sys
 import random
 
 north      = ["n", "north"]
-north_west = ["nw", "north west", "north-west"]
+north_west = ["nw", "northwest", "north-west"]
 west       = ["w", "west"]
-south_west = ["sw", "south west", "south-west"]
+south_west = ["sw", "southwest", "south-west"]
 south      = ["s", "south"]
-south_east = ["se", "south east", "south-east"]
+south_east = ["se", "southeast", "south-east"]
 east       = ["e", "east"]
-north_east = ["ne", "north east", "north-east"]
-direction  = ["n", "north", "nw", "north west", "north-west", "w", "west", "sw", "south west", "south-west", "s", "south", "se", "south east", "south-east", "e", "east", "ne", "north east", "north-east"]
+north_east = ["ne", "northeast", "north-east"]
+direction  = ["n", "north", "nw", "northwest", "north-west", "w", "west", "sw", "southwest", "south-west", "s", "south", "se", "southeast", "south-east", "e", "east", "ne", "northeast", "north-east"]
 
 inputname = [] # basket for player name
-surroundings = [] # basket for possible objects to pick up
+surroundings = [] # basket for possible objects to pick up and doors
 inventory = [] # basket for inventory
 broken_things = [] # basket for things that need fixing
-current_action = []
+current_action = [] # basket for current action (eg move, lock, pickup)
 
 commands = ["add", "pickup", "take", "get",
             "drop", "remove",
@@ -41,7 +41,8 @@ unlocked_door = ["unlocked open door", "unlocked closed door"]
 walkable_door = ["locked open door", "unlocked open door", "smashed door"]
 smashable_door = ["locked closed door", "unlocked closed door", "locked open door", "unlocked open door"]
 
-search_valid = {"idk": True, "i dont know": True, "i don't know": True, "options": True, "search": True, "choices": True, "help": True}
+# triggers help
+search_valid = ["idk", "i dont know", "i don't know", "dont know", "don't know", "options", "search", "choices", "help", "how"]
 
 # doesn't work :(
 class color:
@@ -56,12 +57,15 @@ class color:
    underline = '\033[4m'
    end = '\033[0m'
 
+# prints with a line before and after
 def print2(text):
     print('\n' + text + '\n')
 
+# prints with a line after
 def print1(text):
     print(text + '\n')
 
+# prints with a line before
 def print4(text):
     print('\n' + text)
 
@@ -185,6 +189,7 @@ def smash_door_cmd():
     surroundings.append("smashed door")
     print4 ("I've smashed the door.")
 
+# used in open world rooms
 def action_seq():
     current_action.clear()
     #sys.stdout.write(question)
@@ -194,32 +199,37 @@ def action_seq():
     commandfordirection = ''.join(set(choice).intersection(direction))
     # if no command
     if userinput == '':
+        print2 ("Whoops! You forgot to tell me what to do. If you don't know what to do, just type 'help'.")
         action_seq()
     # help
     elif any(elem in choice for elem in search_valid):
         current_action.append("help")
         if any(elem in choice for elem in add_inventory) or "pick" and "up" in choice:
-            print4 ("To pick up an object, you can say 'add', 'pickup', 'pick up', 'take', or 'get'. For example, say 'pick up the lockpick' to pick up the lockpick.")
+            print4 ("To pick up an object, you can say 'add', 'pickup', 'pick up', 'take', or 'get'. For example, say 'pick up the lockpick' to have me pick up the lockpick.")
         elif any(elem in choice for elem in remove_inventory):
-            print4 ("To drop an object, just say 'drop' or 'remove'. You don't need to specify the object, as you can only carry one thing at a time.")
+            print4 ("To drop an object, just say 'drop' or 'remove'. You don't need to specify the object, as I can only carry one thing at a time.")
         elif any(elem in choice for elem in travel):
-            print4 ("To go in a specific direction, say 'go', 'move', or 'travel' followed by a direction. You can also travel to a specific thing, so you can say 'go sw', 'go southwest', or 'go through the door'.")
+            print4 ("To have me travel in a specific direction, say 'go', 'move', or 'travel', followed by a direction. I can also travel to a specific thing, so you can say 'go sw', 'go southwest', or 'go through the door'. To see a list of valid directions, type 'help directions'.")
+        elif "directions" in choice:
+            print4 ("I can go in any of the eight major compass points: north (or n), east (e), west (w), south (s), northeast (ne, north-east), northwest (nw, north-west), southeast (se, south-east), or southwest (sw, south-west).")
         elif "open" in choice:
-            print4 ("To open a door, just say 'open the door'. If you are unable to open the door, it might be because it is locked.")
+            print4 ("To have me open a door, just say 'open the door'. If I can't open the door, it might be because it is locked.")
         elif any(elem in choice for elem in door_close):
-            print4 ("To close a door, you can say 'close', 'shut', or 'slam'. For example, say 'shut the door' to shut the door.")
+            print4 ("To have me close a door, you can say 'close', 'shut', or 'slam'. For example, say 'shut the door' to have me shut the door.")
         elif any(elem in choice for elem in door_smash):
-            print4 ("To smash a door open, you can say 'smash', 'bash', 'destroy', or 'break'. For example, say 'smash the door open' to smash the door open. However, keep in mind that you need a sledgehammer to smash something, so make sure you've picked one up or mention it in your command, like 'smash the door open with the sledgehammer'.")
+            print4 ("To have me smash a door open, you can say 'smash', 'bash', 'destroy', or 'break'. For example, say 'smash the door open' to have me smash the door open. However, keep in mind that I need a sledgehammer to smash something, so make sure I've picked one up or mention it in your command, like 'smash the door open with the sledgehammer'.")
         elif any(elem in choice for elem in door_unlock):
-            print4 ("To unlock a door, say 'unlock' or 'pick'. For example, say 'pick the lock' to unlock a door. Keep in mind that you need a lockpick to unlock something, so make sure you've picked one up or mention it in your command, like 'unlock the door with the lockpick'.")
+            print4 ("To have me unlock a door, say 'unlock' or 'pick'. For example, say 'pick the lock' to have me unlock a door. Keep in mind that I need a lockpick to unlock something, so make sure I've picked one up or mention it in your command, like 'unlock the door with the lockpick'.")
         elif "lock" in choice:
-            print4 ("To lock a door, just say 'lock the door'. Keep in mind that if you lock an open door and then shut it, you will have to unlock it to open it again. You also need a lockpick to lock something, so make sure you've picked one up or mention it in your command, like 'lock the door with the lockpick'.")
+            print4 ("To have me lock a door, just say 'lock the door'. Keep in mind that if I lock an open door and then shut it, I will have to unlock it to open it again. I also need a lockpick to lock something, so make sure I've picked one up or mention it in your command, like 'lock the door with the lockpick'.")
         else:
-            print4 ("You can pick up or drop an object, smash or pick locks, open or shut doors, and move. For a specific list of commands, type 'help [subset]', like 'help pick up'.")
+            print4 ("I can pick up or drop an object, smash or pick locks, open or shut doors, and move. For a specific list of commands, type 'help [subset]', like 'help pick up'.")
     # pick up item
     elif any(elem in choice for elem in add_inventory) or "pick" and "up" in choice:
         current_action.append("pickup")
-        if objectforsurroundings != '' and len(inventory) == 0:
+        if len(objectforsurroundings) > 1:
+            print4 ("I can't hold two things at once.")
+        elif objectforsurroundings != '' and len(inventory) == 0:
             inventory.append(objectforsurroundings)
             surroundings.remove(objectforsurroundings)
             print4 ("I've picked up a " + objectforsurroundings + ".")
@@ -527,7 +537,7 @@ def pt_5():
         if disconnected:
             game_over()
 
-# open world room 1
+# open world room 1 play
 def next_room_sledge():
     if len(inventory) != 0:
         holding = " holding a " + ''.join(inventory)
@@ -554,7 +564,10 @@ def next_room_sledge():
     answer_action = action_seq()
     if "move" in current_action:
         current_action.clear()
-        if any(elem in answer_action for elem in north) and any(elem in surroundings for elem in closed_door):
+        if any(elem in answer_action for elem in north_east) or any(elem in answer_action for elem in north_west):
+            print4 ("There's a wall there. I can't go that way.")
+            next_room_sledge()
+        elif any(elem in answer_action for elem in north) and any(elem in surroundings for elem in closed_door):
             print4 ("I can't go through a closed door.")
             next_room_sledge()
         elif any(elem in answer_action for elem in north) and any(elem in surroundings for elem in walkable_door):
@@ -578,7 +591,7 @@ def next_room_sledge():
     else:
         print4 ("[[[INVALID ACTION]]]")
 
-# open world room 1
+# open world room 1 setup
 def rm_1_closed_door_a():
     inventory.clear()
     surroundings.clear()
@@ -606,5 +619,5 @@ def rm_2():
         print1 ("okireallygottagothanksagain" + playernameused + "bye")
     game_over()
 
-pt_1()
-#rm_1_closed_door_a()
+#pt_1()
+rm_1_closed_door_a()

@@ -42,7 +42,7 @@ walkable_door = ["locked open door", "unlocked open door", "smashed door"]
 smashable_door = ["locked closed door", "unlocked closed door", "locked open door", "unlocked open door"]
 
 # triggers help
-search_valid = ["idk", "i dont know", "i don't know", "dont know", "don't know", "options", "search", "choices", "help", "how"]
+search_valid = ["idk", "i dont know", "i don't know", "dont know", "don't know", "options", "search", "choices", "help", "how", "what should"]
 
 # doesn't work :(
 class color:
@@ -193,8 +193,9 @@ def smash_door_cmd():
 def action_seq():
     current_action.clear()
     #sys.stdout.write(question)
-    userinput = input("> ").lower().strip()
+    userinput = input("> ").lower().strip().strip("'")
     choice = userinput.split()
+    listforsurroundings = set(choice).intersection(surroundings)
     objectforsurroundings = ''.join(set(choice).intersection(surroundings))
     commandfordirection = ''.join(set(choice).intersection(direction))
     # if no command
@@ -227,16 +228,18 @@ def action_seq():
     # pick up item
     elif any(elem in choice for elem in add_inventory) or "pick" and "up" in choice:
         current_action.append("pickup")
-        if len(objectforsurroundings) > 1:
+        if len(listforsurroundings) >= 2:
+            print (listforsurroundings)
             print4 ("I can't hold two things at once.")
-        elif objectforsurroundings != '' and len(inventory) == 0:
-            inventory.append(objectforsurroundings)
-            surroundings.remove(objectforsurroundings)
-            print4 ("I've picked up a " + objectforsurroundings + ".")
-        elif objectforsurroundings != '' and len(inventory) != 0:
-            print4 ("I'm already holding the " + ''.join(inventory) + ".")
         else:
-            print4 ("Sorry, I can't find anything like that around here.")
+            if objectforsurroundings != '' and len(inventory) == 0:
+                inventory.append(str(objectforsurroundings))
+                surroundings.remove(str(objectforsurroundings))
+                print4 ("I've picked up a " + str(objectforsurroundings) + ".")
+            elif objectforsurroundings != '' and len(inventory) != 0:
+                print4 ("I'm already holding the " + ''.join(inventory) + ".")
+            else:
+                print4 ("Sorry, I can't find anything like that around here.")
     # drop item
     elif any(elem in choice for elem in remove_inventory):
         current_action.append("drop")
@@ -359,7 +362,7 @@ def action_seq():
             print4 ("Sorry, I can't see a door anywhere around here.")
     # no command
     else:
-        print4 ("I don't understand.")
+        print4 ("I don't understand. If you're having trouble, type 'help' to see what you can tell me to do.")
 
 # used to ask the player name
 def player_name(question):
@@ -518,7 +521,7 @@ def pt_4():
     enter()
     print1 ("Who are you?")
     print ("> Please enter your name. 'no' and 'idk' are both valid answers.")
-    player_name("> ")
+    player_name("> My name is ")
 
 # can you help me find out who I am? [y/n]
 def pt_5():
@@ -543,6 +546,7 @@ def next_room_sledge():
         holding = " holding a " + ''.join(inventory)
     else:
         holding = ''
+
     if "locked closed door" in surroundings:
         door_status = " locked door"
     elif "unlocked closed door" in surroundings:
@@ -551,14 +555,14 @@ def next_room_sledge():
         door_status = "n open door"
     elif "smashed door" in surroundings:
         door_status = " broken door"
+
     if "sledgehammer" in surroundings and "lockpick" in surroundings:
         near_me = " and a sledgehammer and a lockpick near me"
     elif "sledgehammer" in surroundings:
         near_me = " and a sledgehammer near me"
     elif "lockpick" in surroundings:
         near_me = " and a lockpick near me"
-    else:
-        near_me = ''
+
     print ("I'm" + holding + " in a room with a" + door_status + " to the north" + near_me + ".")
     print1 ("What should I do?")
     answer_action = action_seq()
@@ -585,11 +589,9 @@ def next_room_sledge():
         else:
             print4 ("There's a wall there. I can't go that way.")
             next_room_sledge()
-    elif any(elem in current_action for elem in ["pickup", "drop", "lock", "unlock", "open", "close", "smash", "help"]):
+    else:
         current_action.clear()
         next_room_sledge()
-    else:
-        print4 ("[[[INVALID ACTION]]]")
 
 # open world room 1 setup
 def rm_1_closed_door_a():

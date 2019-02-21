@@ -33,6 +33,7 @@ door_close = ["close", "shut", "slam"]
 door_smash = ["smash", "bash", "destroy", "break"]
 door_lock = "lock"
 door_unlock = ["unlock", "pick"]
+hide_cmd = "hide"
 
 closed_door = ["locked closed door", "unlocked closed door"]
 open_door = ["locked open door", "unlocked open door"]
@@ -223,6 +224,10 @@ def action_seq():
             print4 ("To have me unlock a door, say 'unlock' or 'pick'. For example, say 'pick the lock' to have me unlock a door. Keep in mind that I need a lockpick to unlock something, so make sure I've picked one up or mention it in your command, like 'unlock the door with the lockpick'.")
         elif "lock" in choice:
             print4 ("To have me lock a door, just say 'lock the door'. Keep in mind that if I lock an open door and then shut it, I will have to unlock it to open it again. I also need a lockpick to lock something, so make sure I've picked one up or mention it in your command, like 'lock the door with the lockpick'.")
+        elif "sleep" in choice:
+            print4 ("To have me go to sleep, just say 'sleep'. However, I am a very deep sleeper, so keep in mind that I might not wake up when messaged.")
+        elif "hide" in choice:
+            print4 ("To have me hide, just say 'hide' and I can tell you if I see anything to hide behind. If I only see one thing, I'll hide straightaway, but if I don't see anything or I see more than one thing to hide behind, I'll ask you what to do next.")
         else:
             print4 ("I can pick up or drop an object, smash or pick locks, open or shut doors, and move. For a specific list of commands, type 'help [subset]', like 'help pick up'.")
     # pick up item
@@ -360,6 +365,31 @@ def action_seq():
                 print4 ("For some really weird reason I can't smash the door. Sorry.")
         else:
             print4 ("Sorry, I can't see a door anywhere around here.")
+    # hide
+    elif "hide" in choice:
+        current_action.append("hide")
+        if any(elem in surroundings for elem in open_door):
+            return "hide"
+        else:
+            print4 ("I can't see anything to hide behind.")
+    # sleep
+    elif "sleep" in choice:
+        current_action.append("sleep")
+        print2 ("That seems like a good idea. Goodnight!")
+        def sleeploop():
+            enter()
+            sleepnumber = random.randint(0,9)
+            print1 ("> Time passes.")
+            print1 ("> What would you like to say?")
+            input("> ")
+            print4 ("> There is no response, but you can hear faint snoring in the background.")
+            if sleepnumber >= 5:
+                sleeploop()
+            else:
+                enter()
+                print1 ("> Error. Connection timed out.")
+                game_over()
+        sleeploop()
     # no command
     else:
         print4 ("I don't understand. If you're having trouble, type 'help' to see what you can tell me to do.")
@@ -566,6 +596,7 @@ def next_room_sledge():
     print ("I'm" + holding + " in a room with a" + door_status + " to the north" + near_me + ".")
     print1 ("What should I do?")
     answer_action = action_seq()
+    # move
     if "move" in current_action:
         current_action.clear()
         if any(elem in answer_action for elem in north_east) or any(elem in answer_action for elem in north_west):
@@ -589,6 +620,34 @@ def next_room_sledge():
         else:
             print4 ("There's a wall there. I can't go that way.")
             next_room_sledge()
+    # hide
+    elif "hide" in current_action and any(elem in surroundings for elem in open_door):
+        print2 ("I'm hiding behind the door, but I don't feel like I'm hidden very well. Should I keep hiding?")
+        answer = yn_query("> ")
+        if answer:
+            print2("Ok. I don't really see the point, but ok.")
+            enter()
+            def keep_hiding():
+                hidenumber = random.randint(0,9)
+                print ("> Time passes.")
+                print2 ("Should I keep hiding?")
+                cont_answer = yn_query("> ")
+                print()
+                enter()
+                if cont_answer:
+                    if hidenumber >= 3:
+                        keep_hiding()
+                    else:
+                        print1 ("> Error. Connection timed out.")
+                        game_over()
+                else:
+                    print4 ("Alright. I'm stepping out from behind the door now.")
+                    next_room_sledge()
+            keep_hiding()
+        else:
+            print4 ("Alright. I'm stepping out from behind the door now.")
+            next_room_sledge()
+
     else:
         current_action.clear()
         next_room_sledge()

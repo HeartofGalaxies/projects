@@ -15,6 +15,7 @@ direction  = ["n", "north", "nw", "northwest", "north-west", "w", "west", "sw", 
 
 inputname = [] # basket for player name
 surroundings = [] # basket for possible objects to pick up and doors
+surroundingsrm1 = [] # basket for room 1 surroundings
 inventory = [] # basket for inventory
 broken_things = [] # basket for things that need fixing
 current_action = [] # basket for current action (eg move, lock, pickup)
@@ -44,19 +45,6 @@ smashable_door = ["locked closed door", "unlocked closed door", "locked open doo
 
 # triggers help
 search_valid = ["idk", "i dont know", "i don't know", "dont know", "don't know", "options", "search", "choices", "help", "how", "what should"]
-
-# doesn't work :(
-class color:
-   purple = '\033[95m'
-   cyan = '\033[96m'
-   darkcyan = '\033[36m'
-   blue = '\033[94m'
-   green = '\033[92m'
-   yellow = '\033[93m'
-   red = '\033[91m'
-   bold = '\033[1m'
-   underline = '\033[4m'
-   end = '\033[0m'
 
 # prints with a line before and after
 def print2(text):
@@ -185,15 +173,12 @@ def smash_door_cmd():
         surroundings.remove("unlocked open door")
     elif "locked open door" in surroundings:
         surroundings.remove("locked open door")
-    else:
-        print4 ("[[[INVALID DOOR STATE]]]")
     surroundings.append("smashed door")
     print4 ("I've smashed the door.")
 
 # used in open world rooms
 def action_seq():
     current_action.clear()
-    #sys.stdout.write(question)
     userinput = input("> ").lower().strip().strip("'")
     choice = userinput.split()
     listforsurroundings = set(choice).intersection(surroundings)
@@ -307,8 +292,6 @@ def action_seq():
                 print4 ("I don't have anything to pick the lock with.")
             else:
                 print4 ("I don't understand.")
-        else:
-            print4 ("[[[FUCK]]]")
     # open door
     elif "open" in choice:
         current_action.append("open")
@@ -390,6 +373,9 @@ def action_seq():
                 print1 ("> Error. Connection timed out.")
                 game_over()
         sleeploop()
+    # [[[REMOVE]]] bypass to room 2
+    elif "bypasscmd" in choice:
+        rm_2()
     # no command
     else:
         print4 ("I don't understand. If you're having trouble, type 'help' to see what you can tell me to do.")
@@ -663,6 +649,8 @@ def rm_1_closed_door_a():
 
 # scripted room 2
 def rm_2():
+    surroundingsrm1.extend(surroundings)
+    print (surroundingsrm1)
     playernameused = makes_name().lower().strip()
     current_action.clear()
     surroundings.clear()
@@ -680,5 +668,5 @@ def rm_2():
         print1 ("okireallygottagothanksagain" + playernameused + "bye")
     game_over()
 
-#pt_1()
-rm_1_closed_door_a()
+pt_1()
+#rm_1_closed_door_a()

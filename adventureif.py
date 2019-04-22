@@ -492,7 +492,10 @@ def action_seq():
     elif any(elem in choice for elem in fight_cmd):
         hitbox = None
         x = fight_cmd.index(fightcommandtype)
-        limb = "foot" if "kick" in choice else limb = "hand"
+        if "kick" in choice:
+            limb = "foot"
+        else:
+            limb = "hand"
         if "door" in choice:
             hitbox = "door"
         elif "wall" in choice:
@@ -784,7 +787,10 @@ def next_room_sledge():
     lock_nearby = " a lockpick" if "lockpick" in surroundings else ''
     door_nearby = " a door" if "dropped door" in surroundings else ''
 
-    hole_status = " and a hole in the wall" if "north wall hole" in surroundings else hole_status = ''
+    if "north wall hole" in surroundings:
+        hole_status = " and a hole in the wall"
+    else:
+        hole_status = ''
 
     print ("I'm" + holding + " in a room with a" + door_status + hole_status + " to the north" + p1 + sledge_nearby + p2 + lock_nearby + p3 + door_nearby + p4 +".")
     print1 ("What should I do?")
@@ -890,5 +896,5 @@ def rm_2():
         print1 ("okireallygottagothanksagain" + playernameused + "bye")
     game_over()
 
-pt_1()
-#rm_1_closed_door_a()
+#pt_1()
+rm_1_closed_door_a()

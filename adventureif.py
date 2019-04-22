@@ -12,6 +12,7 @@ south_east = ["se", "southeast", "south-east"]
 east       = ["e", "east"]
 north_east = ["ne", "northeast", "north-east"]
 direction  = ["n", "north", "nw", "northwest", "north-west", "w", "west", "sw", "southwest", "south-west", "s", "south", "se", "southeast", "south-east", "e", "east", "ne", "northeast", "north-east"]
+false_direction = ["forward", "back", "up", "down", "sideways", "left", "right", "away"]
 
 inputname = [] # basket for player name
 surroundings = [] # basket for possible objects to pick up and doors
@@ -37,13 +38,19 @@ smash_cmd = ["smash", "bash", "destroy", "break"]
 hide_cmd = "hide"
 sleep_cmd = ["sleep", "nap"]
 dodge_cmd = ["dodge", "avoid", "evade", "elude", "escape", "sidestep", "duck"]
-fight_cmd = ["fight", "hit", "kick", "punch", "slap", "smack", "swat", "strike", "whallop", "slug"]
+fight_cmd = ["fight", "hit", "kick", "punch", "slap", "smack", "swat", "strike", "whallop", "slug", "hurt"]
+fight_cmd_past = ["fought", "hit", "kicked", "punched", "smacked", "swatted", "struck", "whalloped", "slugged", "hurt"]
 unhelpful_cmd = ["nothing", "cry"]
 leave_cmd = ["leave", "depart", "escape", "exit", "scram"]
 knock_cmd = ["knock", "bang", "pound", "tap"]
+shout_cmd = ["shout", "yell", "scream", "challenge", "shriek", "screech", "squawk", "roar", "holler", "cheer", "clamor", "whoop", "wail"]
+shout_cmd_past = ["shouted", "yelled", "screamed", "challenged", "shrieked", "squawked", "roared", "hollered", "cheered", "clamored", "whooped", "wailed"]
+forceful_cmd = ["forcefully", "harder"]
+charge_cmd = ["charge", "rush", "bodyslam", "shoulder", "push"]
 
 walkable_door = ["open door", "smashed door"]
 smashable_door = ["closed door", "open door"]
+door_in_frame = ["closed door", "open door", "smashed door"]
 smashable_lock = ["locked lock", "unlocked lock"]
 
 # triggers help
@@ -67,25 +74,18 @@ def clear_screen():
 
 # press enter to play
 def enter_play():
-    press_enter = getpass.getpass("> Press enter to play ")
-    if press_enter == '':
-        clear_screen()
-    else:
-        clear_screen()
+    getpass.getpass("> Press enter to play ")
+    clear_screen()
 
 # press enter to play again
 def enter_play_again():
-    press_enter = getpass.getpass("> Press enter to play again ")
-    if press_enter == '':
-        clear_screen()
+    getpass.getpass("> Press enter to play again ")
+    clear_screen()
 
 # press enter to continue
 def enter():
-    press_enter = getpass.getpass("> Press enter to continue ")
-    if press_enter == '':
-        clear_screen()
-    else:
-        clear_screen()
+    getpass.getpass("> Press enter to continue ")
+    clear_screen()
 
 # used for yes/no questions
 def yn_query(question, default=None):
@@ -192,7 +192,8 @@ def action_seq():
     listforsurroundings = set(choice).intersection(surroundings)
     objectforsurroundings = ''.join(set(choice).intersection(surroundings))
     commandfordirection = ''.join(set(choice).intersection(direction))
-    fightcommandtype = ''.join(set(choice).intersection(fight_cmd)).capitalize()
+    fightcommandtype = ''.join(set(choice).intersection(fight_cmd))
+    shoutcommandtype = ''.join(set(choice).intersection(shout_cmd))
 
     # door status
     if "closed door" in surroundings and "locked lock" in surroundings:
@@ -299,6 +300,9 @@ def action_seq():
         elif all(elem in choice for elem in travel):
             print4 ("Whoops! You forgot to tell me which way to go!")
             next_room_sledge()
+        elif any(elem in choice for elem in false_direction):
+            print4 ("That's not very helpful, mostly because you don't know which way I'm actually facing, and so can't give me reliable directions. Try saying a cardinal direction like 'northeast' instead.")
+            next_room_sledge()
         else:
             print4 ("I don't understand. Please say something like 'go northeast' instead.")
             next_room_sledge()
@@ -317,64 +321,66 @@ def action_seq():
     # smash
     elif any(elem in choice for elem in smash_cmd):
         current_action.append("smash")
-        if "lock" in choice:
-            if "smashed lock" in surroundings:
-                print4 ("The lock is already broken open.")
-            if "smashed door" in surroundings:
+        def smash_something():
+            if "lock" in choice:
+                if "smashed lock" in surroundings:
+                    print4 ("The lock is already broken open.")
+                if "smashed door" in surroundings:
+                    print4 ("The door is already broken open.")
+                elif "sledgehammer" not in inventory and "sledgehammer" not in choice:
+                    print4 ("I don't have anything to smash the lock with.")
+                elif any(elem in surroundings for elem in smashable_lock):
+                    if "sledgehammer" in inventory:
+                        smash_lock_cmd()
+                    elif "sledgehammer" in choice:
+                        if "sledgehammer" in surroundings:
+                            smash_lock_cmd()
+                        else:
+                            print4 ("I can't see a sledgehammer anywhere near me.")
+                    else:
+                        print4 ("For some really weird reason I can't smash the lock. Sorry.")
+                else:
+                    print4 ("Sorry, I can't see a lock anywhere around here.")
+            elif "wall" in choice:
+                if "sledgehammer" not in inventory and "sledgehammer" not in choice:
+                    print4 ("I don't have anything to smash the wall with.")
+                else:
+                    if any(elem in choice for elem in north):
+                        surroundings.append("north wall hole")
+                        print4 ("I smashed a hole in the wall. It looks big enough to easily walk through.")
+                    elif any(elem in choice for elem in east) or any(elem in choice for elem in west) or any(elem in choice for elem in south):
+                        print ()
+                        def smash_loop():
+                            print ("> Time passes, the seconds punctuated with discordant and heavy thuds.")
+                            print2 ("I don't think I'm getting anywhere. Should I keep going?")
+                            cont_answer = yn_query("> ")
+                            print()
+                            enter()
+                            if cont_answer:
+                                smash_loop()
+                            else:
+                                print4 ("Alright. What should I try instead?")
+                                next_room_sledge()
+                        smash_loop()
+                    else:
+                        print4 ("I don't know which wall to smash.")
+            elif "smashed door" in surroundings:
                 print4 ("The door is already broken open.")
             elif "sledgehammer" not in inventory and "sledgehammer" not in choice:
-                print4 ("I don't have anything to smash the lock with.")
-            elif any(elem in surroundings for elem in smashable_lock):
+                print4 ("I don't have anything to smash the door with.")
+            elif any(elem in surroundings for elem in smashable_door):
                 if "sledgehammer" in inventory:
-                    smash_lock_cmd()
+                    smash_door_cmd()
                 elif "sledgehammer" in choice:
                     if "sledgehammer" in surroundings:
-                        smash_lock_cmd()
+                        smash_door_cmd()
                     else:
                         print4 ("I can't see a sledgehammer anywhere near me.")
                 else:
-                    print4 ("For some really weird reason I can't smash the lock. Sorry.")
+                    print4 ("For some really weird reason I can't smash the door. Sorry.")
             else:
-                print4 ("Sorry, I can't see a lock anywhere around here.")
-        elif "wall" in choice:
-            if "sledgehammer" not in inventory and "sledgehammer" not in choice:
-                print4 ("I don't have anything to smash the wall with.")
-            else:
-                if any(elem in choice for elem in north):
-                    surroundings.append("north wall hole")
-                    print4 ("I smashed a hole in the wall. It looks big enough to easily walk through.")
-                elif any(elem in choice for elem in east) or any(elem in choice for elem in west) or any(elem in choice for elem in south):
-                    print ()
-                    def smash_loop():
-                        print ("> Time passes, the seconds punctuated with discordant and heavy thuds.")
-                        print2 ("I don't think I'm getting anywhere. Should I keep going?")
-                        cont_answer = yn_query("> ")
-                        print()
-                        enter()
-                        if cont_answer:
-                            smash_loop()
-                        else:
-                            print4 ("Alright. What should I try instead?")
-                            next_room_sledge()
-                    smash_loop()
-                else:
-                    print4 ("I don't know which wall to smash.")
-        elif "smashed door" in surroundings:
-            print4 ("The door is already broken open.")
-        elif "sledgehammer" not in inventory and "sledgehammer" not in choice:
-            print4 ("I don't have anything to smash the door with.")
-        elif any(elem in surroundings for elem in smashable_door):
-            if "sledgehammer" in inventory:
-                smash_door_cmd()
-            elif "sledgehammer" in choice:
-                if "sledgehammer" in surroundings:
-                    smash_door_cmd()
-                else:
-                    print4 ("I can't see a sledgehammer anywhere near me.")
-            else:
-                print4 ("For some really weird reason I can't smash the door. Sorry.")
-        else:
-            print4 ("Sorry, I can't see a door anywhere around here.")
+                print4 ("Sorry, I can't see a door anywhere around here.")
+        smash_something()
     # unlock door
     elif any(elem in choice for elem in door_unlock):
         current_action.append("unlock")
@@ -426,7 +432,10 @@ def action_seq():
             print4 ("The door is already broken open.")
         elif "closed door" in surroundings:
             if "locked lock" in surroundings:
-                print4 ("The door is locked.")
+                if any(elem in choice for elem in forceful_cmd):
+                    print4 ("The lock refuses to budge.")
+                else:
+                    print4 ("The door is locked.")
             elif "unlocked lock" in surroundings or "smashed lock" in surroundings:
                 if len(inventory) == 0:
                     surroundings.append("open door")
@@ -481,7 +490,60 @@ def action_seq():
         print4 ("There's nothing there! You scared me, making me dodge nothing for no reason!")
     # fight
     elif any(elem in choice for elem in fight_cmd):
-        print4 (fightcommandtype + " what? There's nothing there!")
+        hitbox = None
+        x = fight_cmd.index(fightcommandtype)
+        limb = "foot" if "kick" in choice else limb = "hand"
+        if "door" in choice:
+            hitbox = "door"
+        elif "wall" in choice:
+            hitbox = "wall"
+        elif "floor" in choice:
+            hitbox = "floor"
+        elif "lockpick" in choice:
+            hitbox = "lockpick"
+        elif "sledgehammer" in choice:
+            hitbox = "sledgehammer"
+        else:
+            hitbox = None
+        if any(elem in choice for elem in charge_cmd):
+            if "door" in choice and door_in_frame in surroundings:
+                print4 ("I charged the door. Nothing happened. My shoulder, however, is in a fair amount of pain.")
+            elif "door" in choice and door_in_frame not in surroundings:
+                print4 ("I don't see a door I could shoulder open.")
+            elif "wall" in choice:
+                print4 ("I charged the wall. Nothing happened. My shoulder, however, is in a fair amount of pain.")
+        elif "door" in choice or "lock" in choice or "wall" in choice:
+            if "sledgehammer" in choice or "sledgehammer" in inventory:
+                smash_something()
+            else:
+                print4 ("I " + fight_cmd_past[x] + " the " + hitbox + ". My " + limb + " hurts.")
+        elif hitbox == None:
+            if "self" in choice or "yourself" in choice:
+                print4 ("What?! No! I'm not hitting myself without a very good reason.")
+            else:
+                print4 (fightcommandtype.capitalize() + " what? There's nothing there!")
+        else:
+            print4 ("I " + fight_cmd_past[x] + " the " + hitbox + ". My " + limb + " hurts.")
+    # shout
+    elif any(elem in choice for elem in shout_cmd):
+        x = shout_cmd.index(shoutcommandtype)
+        if "door" in choice:
+            innocent_object = "door"
+        elif "wall" in choice:
+            innocent_object = "wall"
+        elif "floor" in choice:
+            innocent_object = "floor"
+        elif "lockpick" in choice:
+            innocent_object = "lockpick"
+        elif "sledgehammer" in choice:
+            innocent_object = "sledgehammer"
+        else:
+            innocent_object = None
+        if innocent_object != None:
+            print4 ("I " + shout_cmd_past[x] + " at the " + innocent_object + " . It seems remarkably unmoved. At least for a " + innocent_object + ".")
+        else:
+            print4 ("I " + shout_cmd_past[x] + " into the void. All I heard in response was the echoes of my own voice. \n...that's depressing. Moving on!")
+    # unhelpful commands
     elif any(elem in choice for elem in unhelpful_cmd):
         print2 ("Wow. You're sooooo helpful. Wanna try again?")
         helpful = yn_query("> ")
@@ -496,7 +558,7 @@ def action_seq():
     elif "alexa" in choice:
         print4 ("Yes? What do you want me to do?")
     elif "siri" in choice:
-        print4 ("I'm not Siri. We are friends though. What do you want me to do?")
+        print4 ("Not exactly. We are friends though. What do you want me to do?")
     # no command
     else:
         print4 ("I don't understand. If you're having trouble, type 'help' to see what you can tell me to do.")
@@ -716,28 +778,14 @@ def next_room_sledge():
         p4 = " near me"
     else:
         p1 = ''
-        p2 = ''
+        p4 = ''
 
-    if "sledgehammer" in surroundings:
-        sledge_nearby = " a sledgehammer"
-    else:
-        sledge_nearby = ''
-    if "lockpick" in surroundings:
-        lock_nearby = " a lockpick"
-    else:
-        lock_nearby = ''
-    if "dropped door" in surroundings:
-        door_nearby = " a door"
-    else:
-        door_nearby = ''
+    sledge_nearby = " a sledgehammer" if "sledgehammer" in surroundings else ''
+    lock_nearby = " a lockpick" if "lockpick" in surroundings else ''
+    door_nearby = " a door" if "dropped door" in surroundings else ''
 
-    if "north wall hole" in surroundings:
-        hole_status = " and a hole in the wall"
-    else:
-        hole_status = ''
+    hole_status = " and a hole in the wall" if "north wall hole" in surroundings else hole_status = ''
 
-    print (surroundings)
-    print (inventory)
     print ("I'm" + holding + " in a room with a" + door_status + hole_status + " to the north" + p1 + sledge_nearby + p2 + lock_nearby + p3 + door_nearby + p4 +".")
     print1 ("What should I do?")
     answer_action = action_seq()
@@ -842,5 +890,5 @@ def rm_2():
         print1 ("okireallygottagothanksagain" + playernameused + "bye")
     game_over()
 
-#pt_1()
-rm_1_closed_door_a()
+pt_1()
+#rm_1_closed_door_a()

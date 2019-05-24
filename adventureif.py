@@ -2,6 +2,9 @@ import os
 import getpass
 import sys
 import random
+import re
+
+stripattern = re.compile('([^\s\w]|_)+') # strip all non alphanumeric characters that are not spaces
 
 north      = ["n", "north"]
 north_west = ["nw", "northwest", "north-west"]
@@ -21,28 +24,28 @@ inventory = [] # basket for inventory
 broken_things = [] # basket for things that need fixing
 current_action = [] # basket for current action (eg move, lock, pickup)
 
-commands = ["add", "pickup", "take", "get",
-            "drop", "remove",
-            "go", "move", "travel", "proceed", "relocate",
-            "open",
-            "close", "shut", "lock", "slam",
-            "smash", "bash", "destroy", "break"]
 add_inventory = ["add", "pickup", "pick up", "take", "get", "grab"]
+add_inventory_past = ["added", "picked up", "picked up", "took", "got", "grabbed"]
 remove_inventory = ["drop", "remove"]
 travel = ["go", "move", "travel", "proceed", "relocate", "walk", "run", "step", "jog", "sprint"]
+travel_past = ["went", "moved", "travelled", "proceeded", "relocated", "walked", "ran", "stepped", "jogged", "sprinted"]
 door_open = "open"
 door_close = ["close", "shut", "slam"]
+door_close_past = ["closed", "shut", "slammed"]
 door_lock = "lock"
 door_unlock = ["unlock", "pick"]
 smash_cmd = ["smash", "bash", "destroy", "break"]
+smash_cmd_past = ["smashed", "bashed", "destroyed", "broke"]
 hide_cmd = "hide"
 sleep_cmd = ["sleep", "nap"]
 dodge_cmd = ["dodge", "avoid", "evade", "elude", "escape", "sidestep", "duck"]
+dodge_cmd_past = ["dodged", "avoided", "evaded", "eluded", "escaped", "sidestepped", "ducked"]
 fight_cmd = ["fight", "hit", "kick", "punch", "slap", "smack", "swat", "strike", "whallop", "slug", "hurt"]
 fight_cmd_past = ["fought", "hit", "kicked", "punched", "smacked", "swatted", "struck", "whalloped", "slugged", "hurt"]
 unhelpful_cmd = ["nothing", "cry"]
 leave_cmd = ["leave", "depart", "escape", "exit", "scram"]
 knock_cmd = ["knock", "bang", "pound", "tap"]
+knock_cmd_past = ["knocked", "banged", "pounded", "tapped"]
 shout_cmd = ["shout", "yell", "scream", "challenge", "shriek", "screech", "squawk", "roar", "holler", "cheer", "clamor", "whoop", "wail"]
 shout_cmd_past = ["shouted", "yelled", "screamed", "challenged", "shrieked", "squawked", "roared", "hollered", "cheered", "clamored", "whooped", "wailed"]
 forceful_cmd = ["forcefully", "harder"]
@@ -102,7 +105,8 @@ def yn_query(question, default=None):
 
     while True:
         sys.stdout.write(prompt + question)
-        choice = input().lower().strip()
+        choiceraw = input().lower().strip()
+        choice = stripattern.sub('', choiceraw)
         if default is not None and choice == '':
             return valid[default]
         elif choice in valid:
@@ -134,7 +138,8 @@ def stopgo_query(question, default=None):
 
     while True:
         sys.stdout.write(prompt + question)
-        choice = input().lower().strip()
+        choiceraw = input().lower().strip()
+        choice = stripattern.sub('', choiceraw)
         if default is not None and choice == '':
             return valid[default]
         elif choice in valid:
@@ -186,11 +191,13 @@ def smash_lock_cmd():
 # used in open world rooms
 def action_seq():
     current_action.clear()
-    userinput = input("> ").strip().strip("'").strip("?").strip("!").strip(".").strip(",")
-    choice = userinput.split()
+    userinputraw = input("> ").lower().strip()
+    choiceraw = stripattern.sub('', userinputraw)
+    choice = choiceraw.split()
 
     listforsurroundings = set(choice).intersection(surroundings)
     objectforsurroundings = ''.join(set(choice).intersection(surroundings))
+    commandfortravel = ''.join(set(choice).intersection(travel))
     commandfordirection = ''.join(set(choice).intersection(direction))
     fightcommandtype = ''.join(set(choice).intersection(fight_cmd))
     shoutcommandtype = ''.join(set(choice).intersection(shout_cmd))
@@ -208,13 +215,13 @@ def action_seq():
         door_status = " doorframe"
 
     # if no command
-    if userinput == '':
+    if userinputraw == '':
         print2 ("Whoops! You forgot to tell me what to do. If you don't know what to do, just type 'help'.")
         action_seq()
     # help
     elif any(elem in choice for elem in search_valid):
         current_action.append("help")
-        if any(elem in choice for elem in add_inventory) or "pick" and "up" in choice:
+        if any(elem in choice for elem in add_inventory) or "pick" in choice and "up" in choice:
             print4 ("To pick up an object, you can say 'add', 'pickup', 'pick up', 'take', 'grab', or 'get'. For example, say 'pick up the lockpick' to have me pick up the lockpick.")
         elif any(elem in choice for elem in remove_inventory):
             print4 ("To drop an object, you can say 'drop' or 'remove'. You don't need to specify the object, as I can only carry one thing at a time.")
@@ -243,7 +250,7 @@ def action_seq():
         else:
             print4 ("I can pick up or drop an object, smash or pick locks, doors, and walls, open or shut doors, sleep, hide, fight, dodge, and move. For a specific list of commands, type 'help [subset]', like 'help pick up'.")
     # pick up item
-    elif any(elem in choice for elem in add_inventory) or "pick" and "up" in choice:
+    elif any(elem in choice for elem in add_inventory) or "pick" in choice and "up" in choice:
         current_action.append("pickup")
         if len(listforsurroundings) >= 2:
             print4 ("I can't hold two things at once.")
@@ -276,7 +283,7 @@ def action_seq():
             else:
                 print4 ("Sorry, I can't find anything like that around here.")
     # drop item
-    elif any(elem in choice for elem in remove_inventory) or "put" and "down" in choice:
+    elif any(elem in choice for elem in remove_inventory) or "put" in choice and "down" in choice:
         current_action.append("drop")
         if len(inventory) == 0:
             print4 ("I'm not holding anything.")
@@ -301,10 +308,10 @@ def action_seq():
             print4 ("Whoops! You forgot to tell me which way to go!")
             next_room_sledge()
         elif any(elem in choice for elem in false_direction):
-            print4 ("That's not very helpful, mostly because you don't know which way I'm actually facing, and so can't give me reliable directions. Try saying a cardinal direction like 'northeast' instead.")
+            print4 ("That's not very helpful, mostly because you don't know which way I'm actually facing, and so can't give me reliable directions. Try giving me a cardinal direction like 'northeast' instead.")
             next_room_sledge()
         else:
-            print4 ("I don't understand. Please say something like 'go northeast' instead.")
+            print4 ("I don't know where to " + commandfortravel + ". Please say something like '" + commandfortravel + " northeast' instead.")
             next_room_sledge()
     # leave
     elif any(elem in choice for elem in leave_cmd):
@@ -545,7 +552,7 @@ def action_seq():
         if innocent_object != None:
             print4 ("I " + shout_cmd_past[x] + " at the " + innocent_object + " . It seems remarkably unmoved. At least for a " + innocent_object + ".")
         else:
-            print4 ("I " + shout_cmd_past[x] + " into the void. All I heard in response was the echoes of my own voice. \n...that's depressing. Moving on!")
+            print4 ("I " + shout_cmd_past[x] + ". All I heard in response was the echoes of my own voice. \n...that's depressing. Moving on!")
     # unhelpful commands
     elif any(elem in choice for elem in unhelpful_cmd):
         print2 ("Wow. You're sooooo helpful. Wanna try again?")
@@ -556,43 +563,32 @@ def action_seq():
             print2 ("Alright. You're clearly not going to be any help. Bye.")
             game_over()
     # [[[REMOVE]]] bypass to room 2
-    elif "bypasscmdrm2" in choice:
+    elif "bypasscmdrm2test" in choice:
         rm_2()
+    # [[[REMOVE]]] break game
+    elif "throwerrortestnow" in choice:
+        print4 (inventory)
     elif "alexa" in choice:
         print4 ("Yes? What do you want me to do?")
     elif "siri" in choice:
         print4 ("Not exactly. We are friends though. What do you want me to do?")
+    elif "cortana" in choice:
+        print4 ("Nope. I do know her though. What do you want me to do?")
     # no command
     else:
         print4 ("I don't understand. If you're having trouble, type 'help' to see what you can tell me to do.")
 
 # used to ask the player name
 def player_name(question):
-    idk_name = ["idk", "i dont know"]
-    not_telling_name = ["no", "n", "nope", "nah", "false", "not telling"]
-
     inputname.clear()
     sys.stdout.write(question)
-    playernameinput = input().strip().capitalize()
-    if playernameinput in not_telling_name:
-        print2 ("Oh. Ok. That's fine.")
-        enter()
-        pt_5()
-    elif playernameinput in idk_name:
-        print2 ("I don't know who I am either.")
-        enter()
-        pt_5()
-    elif playernameinput == '':
-        player_name(question)
-    elif playernameinput in search_valid:
-        sys.stdout.write("\n"
-                         "> You can say 'idk' and 'i dont know', or 'no', 'n', 'nope', 'nah', 'false', and 'not telling', or you can state your name.\n"
-                         "> What would you like to say?\n"
-                         "\n")
+    playernameraw = input("My name is ").capitalize().strip()
+    playernameinput = stripattern.sub('', playernameraw)
+    if playernameinput == '':
         player_name(question)
     else:
         print ()
-        print (playernameinput + ". I like it. I think.")
+        print (playernameinput.capitalize() + ". I like it. I think.")
         print ()
         print ("> Press enter to continue or type 'retry' to enter your name again")
         inputname.append(playernameinput)
@@ -601,7 +597,7 @@ def player_name(question):
             clear_screen()
             pt_5()
         if not answer:
-            print4 ("> Please enter your name. 'no' and 'idk' are both valid answers")
+            print ()
             player_name(question)
 
 # makes player_name a global variable (kinda)
@@ -722,8 +718,7 @@ def pt_4():
     print1 ("No one's been able to hear me before.")
     enter()
     print1 ("Who are you?")
-    print ("> Please enter your name. 'no' and 'idk' are both valid answers.")
-    player_name("> My name is ")
+    player_name("> ")
 
 # can you help me find out who I am? [y/n]
 def pt_5():
@@ -890,11 +885,8 @@ def rm_2():
     print1 (">>Hey Alexa! Play generic pop song #37!<<")
     print1 ("I gotta go. Thanks for helping!")
     print1 (">>HEY ALEXA!<<")
-    if playernameused == '':
-        print1 ("okireallygottagothanksagainbye")
-    else:
-        print1 ("okireallygottagothanksagain" + playernameused + "bye")
+    print1 ("okireallygottagothanksagain" + playernameused + "bye")
     game_over()
 
-#pt_1()
-rm_1_closed_door_a()
+pt_1()
+#rm_1_closed_door_a()

@@ -151,17 +151,17 @@ def stopgo_query(question, default=None):
             sys.stdout.write("> Please respond with 'yes' or 'no' "
                              "(or 'y' or 'n'). Type 'help' to see more options\n")
 
-def unlock_door_cmd():
+def unlock_door_cmd(surroundings):
     surroundings.remove("locked lock")
     surroundings.append("unlocked lock")
     print4 ("I've unlocked the door.")
 
-def lock_door_cmd():
+def lock_door_cmd(surroundings):
     surroundings.remove("unlocked lock")
     surroundings.append("locked lock")
     print4 ("I've locked the door.")
 
-def smash_door_cmd():
+def smash_door_cmd(surroundings):
     if "closed door" in surroundings:
         surroundings.remove("closed door")
     elif "locked door" in surroundings:
@@ -177,7 +177,7 @@ def smash_door_cmd():
     surroundings.append("smashed door")
     print4 ("I've smashed the door.")
 
-def smash_lock_cmd():
+def smash_lock_cmd(surroundings):
     if "locked lock" in surroundings:
         surroundings.remove("locked lock")
     elif "unlocked lock" in surroundings:
@@ -335,10 +335,10 @@ def action_seq(surroundings):
                     print4 ("I don't have anything to smash the lock with.")
                 elif any(elem in surroundings for elem in smashable_lock):
                     if "sledgehammer" in inventory:
-                        smash_lock_cmd()
+                        smash_lock_cmd(surroundingsrm1)
                     elif "sledgehammer" in choice:
                         if "sledgehammer" in surroundings:
-                            smash_lock_cmd()
+                            smash_lock_cmd(surroundingsrm1)
                         else:
                             print4 ("I can't see a sledgehammer anywhere near me.")
                     else:
@@ -374,10 +374,10 @@ def action_seq(surroundings):
                 print4 ("I don't have anything to smash the door with.")
             elif any(elem in surroundings for elem in smashable_door):
                 if "sledgehammer" in inventory:
-                    smash_door_cmd()
+                    smash_door_cmd(surroundingsrm1)
                 elif "sledgehammer" in choice:
                     if "sledgehammer" in surroundings:
-                        smash_door_cmd()
+                        smash_door_cmd(surroundingsrm1)
                     else:
                         print4 ("I can't see a sledgehammer anywhere near me.")
                 else:
@@ -396,10 +396,10 @@ def action_seq(surroundings):
             print4 ("The lock is already broken open.")
         elif "locked lock" in surroundings:
             if "lockpick" in inventory:
-                unlock_door_cmd()
+                unlock_door_cmd(surroundingsrm1)
             elif any(elem in choice for elem in ["lock", "door"]) and "lockpick" in choice:
                 if "lockpick" in surroundings:
-                    unlock_door_cmd()
+                    unlock_door_cmd(surroundingsrm1)
                 else:
                     print4 ("I can't see a lockpick anywhere near me.")
             elif "lockpick" not in inventory:
@@ -411,10 +411,10 @@ def action_seq(surroundings):
         current_action.append("lock")
         if "unlocked lock" in surroundings:
             if "lockpick" in inventory:
-                lock_door_cmd()
+                lock_door_cmd(surroundingsrm1)
             elif any(elem in choice for elem in ["lock", "door"]) and "lockpick" in choice:
                 if "lockpick" in surroundings:
-                    lock_door_cmd()
+                    lock_door_cmd(surroundingsrm1)
                 else:
                     print4 ("I can't see a lockpick anywhere near me.")
             elif "lockpick" not in inventory:
@@ -911,7 +911,6 @@ def rm_1_setup():
 def rm_2():
     playernameused = makes_name().lower().strip().replace(' ', '')
     current_action.clear()
-    surroundings.clear()
     print ("Hey look! I see a piece of paper.")
     print1 ("I'm gonna pick it up.")
     enter()

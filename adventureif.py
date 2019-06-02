@@ -20,6 +20,7 @@ false_direction = ["forward", "back", "up", "down", "sideways", "left", "right",
 inputname = [] # basket for player name
 #surroundings = [] # basket for possible objects to pick up and doors
 surroundingsrm1 = [] # basket for room 1 surroundings
+surroundingsrm2 = [] # basket for room 2 surroundings
 inventory = [] # basket for inventory
 current_action = [] # basket for current action (eg move, lock, pickup)
 
@@ -30,25 +31,25 @@ door_open = "open" # unused
 door_close = ["close", "shut", "slam"]
 door_lock = "lock" # unused
 door_unlock = ["unlock", "pick"]
+hide_cmds = "hide" # unused
 smash_cmd = ["smash", "bash", "destroy", "break"]
-hide_cmd = "hide" # unused
 sleep_cmd = ["sleep", "nap"]
 dodge_cmd = ["dodge", "avoid", "evade", "elude", "escape", "sidestep", "duck"]
 fight_cmd = ["fight", "hit", "kick", "punch", "slap", "smack", "swat", "strike", "whallop", "slug", "hurt"]
-fight_cmd_past = ["fought", "hit", "kicked", "punched", "smacked", "swatted", "struck", "whalloped", "slugged", "hurt"]
-unhelpful_cmd = ["nothing", "cry"]
 leave_cmd = ["leave", "depart", "escape", "exit", "scram"]
 knock_cmd = ["knock", "bang", "pound", "tap"]
-knock_cmd_past = ["knocked", "banged", "pounded", "tapped"]
 shout_cmd = ["shout", "yell", "scream", "challenge", "shriek", "screech", "squawk", "roar", "holler", "cheer", "clamor", "whoop", "wail"]
-shout_cmd_past = ["shouted", "yelled", "screamed", "challenged", "shrieked", "squawked", "roared", "hollered", "cheered", "clamored", "whooped", "wailed"]
+jump_cmds = ["jump", "leap", "bounce", "vault", "bound", "hop", "hurdle", "jounce"]
 greetings = ["hi", "hey", "hello", "sup", "greeting", "greet", "howdy", "good morning", "whats up", "how are", "how is"]
 farewells = ["bye", "toodles", "farewell", "goodbye", "cheerio", "good day", "good night", "so long", "good luck", "got to go", "gtg", "g2g", "talk to you later", "ttyl", "be right back", "brb", "afk", "afc"]
-forceful_cmd = ["forcefully", "force", "harder"]
-charge_cmd = ["charge", "rush", "bodyslam", "shoulder", "push"]
-jump_cmd = ["jump", "leap", "bounce", "vault", "bound", "hop", "hurdle", "jounce"]
+shout_cmd_past = ["shouted", "yelled", "screamed", "challenged", "shrieked", "squawked", "roared", "hollered", "cheered", "clamored", "whooped", "wailed"]
+fight_cmd_past = ["fought", "hit", "kicked", "punched", "smacked", "swatted", "struck", "whalloped", "slugged", "hurt"]
+knock_cmd_past = ["knocked", "banged", "pounded", "tapped"]
+unhelpful_cmds = ["nothing", "cry"]
+forcefully_cmd = ["forcefully", "force", "harder"]
+chargeobj_cmds = ["charge", "rush", "bodyslam", "shoulder", "push"]
 
-walkable_door = ["open door", "smashed door"]
+walkable_door = ["open door", "smashed door", "doorframe"]
 smashable_door = ["closed door", "open door"]
 door_in_frame = ["closed door", "open door", "smashed door"]
 smashable_lock = ["locked lock", "unlocked lock"]
@@ -259,6 +260,7 @@ def action_seq(surroundings):
             if 'smashed door' in surroundings and len(inventory) == 0:
                 inventory.append(str("door"))
                 surroundings.remove(str("smashed door"))
+                surroundings.append("doorframe")
                 print4 ("I've picked up a door.")
             elif 'door' in inventory and len(inventory) != 0:
                 print4 ("I'm already holding the door.")
@@ -436,7 +438,7 @@ def action_seq(surroundings):
             print4 ("The door is already broken open.")
         elif "closed door" in surroundings:
             if "locked lock" in surroundings:
-                if any(elem in choice for elem in forceful_cmd):
+                if any(elem in choice for elem in forcefully_cmd):
                     print4 ("The lock refuses to budge.")
                 else:
                     print4 ("The door is locked.")
@@ -467,7 +469,7 @@ def action_seq(surroundings):
     # hide
     elif "hide" in choice:
         current_action.append("hide")
-        if "open door" in surroundings or "smashed door" in surroundings:
+        if "open door" in surroundings or "smashed door" in surroundings or "door" in inventory or "dropped door" in surroundings:
             return "hide"
         else:
             print4 ("I can't see anything to hide behind.")
@@ -512,7 +514,7 @@ def action_seq(surroundings):
             innocent_object = "sledgehammer"
         else:
             innocent_object = None
-        if any(elem in choice for elem in charge_cmd):
+        if any(elem in choice for elem in chargeobj_cmds):
             if "door" in choice and door_in_frame in surroundings:
                 print4 ("I charged the door. Nothing happened. My shoulder, however, is in a fair amount of pain.")
             elif "door" in choice and door_in_frame not in surroundings:
@@ -593,10 +595,10 @@ def action_seq(surroundings):
             else:
                 print4 ("Well then why'd you say that? Whatever. Moving on.")
     # jump
-    elif any(elem in choice for elem in jump_cmd):
+    elif any(elem in choice for elem in jump_cmds):
         print4 ("I jumped on the spot.")
     # unhelpful commands
-    elif any(elem in choice for elem in unhelpful_cmd):
+    elif any(elem in choice for elem in unhelpful_cmds):
         print2 ("Wow. You're sooooo helpful. Wanna try again?")
         helpful = yn_query("> ")
         if helpful:
@@ -627,7 +629,7 @@ def action_seq(surroundings):
 def player_name(question):
     inputname.clear()
     sys.stdout.write(question)
-    playernameraw = input("My name is ").capitalize().strip()
+    playernameraw = input("My name is ").capitalize().strip().replace('  ', ' ')
     playernameinput = stripattern.sub('', playernameraw)
     if playernameinput == '':
         player_name(question)
@@ -714,7 +716,6 @@ def disconnecting():
 
 # title, plays game
 def pt_1():
-
     print ()
     print ("  ██╗    ██╗ ██╗  ██╗  ██████╗       █████╗  ███╗   ███╗     ██╗ ██████╗ ")
     print ("  ██║    ██║ ██║  ██║ ██╔═══██╗     ██╔══██╗ ████╗ ████║     ██║ ╚════██╗")
@@ -728,20 +729,31 @@ def pt_1():
 
 # after title, glitch hello
 def pt_2():
+    print1 ("> Transmission detected. Isolating signal...")
+    enter()
+    print1 ("> Significant static interference. Initiating static scrubbing.")
+    enter()
     print ()
     print ()
-    print2 ("H̸̡̢̬̯̖̲͚̝̪̦͎̣͖̜̒̄̈́͑̕͝ͅē̸̘̞̼̞͉͖͐́̓̀͑̈͒̈͆͗̚l̵̛͎͕͂͛̐̽͗̄̕̕̚l̸̰̫̼̙̠͙͋͋̀̍̀͐̓̈́̑͑̅o̶͕̦̲̍͌͛̀̍̒̈̑͌̽̕͘͘͝͝.")
-
+    print2 ("Ḩ̵̠̮̺̻͔̼̥̭̗͎̝̝̤̱̳͙̺̤͋̈́͋̈́̎̈̎́̾̓̽͋̂͗͌̉̈͊̌́̚͝ͅȩ̸̂͊̄̀̉̎̓̄̉̊͒͛l̵̢̢̮̙͖̠̦͈̪̲̜͖͍̼͚̟͓̃̈́̑̑͂̆̆͂̂͆͑̉̓́̑́͋̚̚͝l̵̘̝͈̈́̚͜o̴͙̰̦͚̞͉̘̹̼͓̙̜͆̈́̔͛͆̎.̶̢̨͔̰͉̹̞͓͎̻̤͉̠̟̜̳͇̟̌̈́̀́͠")
     print ()
     print ()
+    print ()
+    print1 ("> Scrubbing 17% complete.")
+    enter()
+    print2 ("H̴͉̮̯̱̺̱̏̓ę̸͈̟̫͇̝͕̬͓̺͎̥̼̊̇̒͐͛̄̚l̷̟͎̭̽̈́̈́͑̿́̓́̊́͊͠l̷̬̖̬̘̥̜̈̇̀o̶̢̡͈͔̞͔̺̗̥̘̼̍̓̾̾͜.̵̢͍̩̣̙̻͉̗̫̣̦̰̇̿̏̒̈̓͂̕͘ͅ")
+    print ()
+    print ()
+    print1 ("> Scrubbing 41% complete.")
     enter()
     print2 ("Ḧ̸̡̟́͜͝ę̵̧̈́͌̆ļ̸̤̻͝l̶̖͘͝o̸͖̬̊͆̊.")
+    print1 ("> Scrubbing 78% complete.")
     enter()
     print2 ("H̶̘̎e̵̬̋l̶̮̅l̵͇͌ò̶̲.")
-    enter()
-    print1 ("H̸ello.")
+    print1 ("> Scrubbing 99% complete.")
     enter()
     print1 ("Hello.")
+    print1 ("> Scrubbing complete. Initiating transmission.")
     enter()
     pt_3()
 
@@ -782,6 +794,18 @@ def pt_5():
         if disconnected:
             game_over()
 
+# punctuate near_me list with commas and 'and'
+def make_item_list(items):
+    assert len(items) != 0 # or handle somehow, return "" or whatever
+    if len(items) == 1:
+        return items[0]
+    elif len(items) == 2:
+        return "{} and a {}".format(items[0], items[1])
+    else:
+        last = items[-1]
+        rest = ", a ".join(items[0:-1])
+        return "{}, and a {}".format(rest, last)
+
 # open world room 1 play
 def rm_1_interactive():
     if len(inventory) != 0:
@@ -803,23 +827,12 @@ def rm_1_interactive():
     potential_near_me = ["sledgehammer", "lockpick", "dropped door"]
     near_me = [value for value in surroundingsrm1 if value in potential_near_me] # gets intersection of lists without using sets
 
-    # punctuate near_me list with commas and 'and'
-    def make_item_list(items):
-        assert len(items) != 0 # or handle somehow, return "" or whatever
-        if len(items) == 1:
-            return items[0]
-        elif len(items) == 2:
-            return "{} and a {}".format(items[0], items[1])
-        else:
-            last = items[-1]
-            rest = ", a ".join(items[0:-1])
-            return "{}, and a {}".format(rest, last)
-
     if "north wall hole" in surroundingsrm1:
         hole_status = " and a hole in the wall"
     else:
         hole_status = ''
 
+    print (surroundingsrm1)
     print ("I'm" + holding + " in a room with a" + door_status + hole_status + " to the north and a " + make_item_list(near_me) + " near me.")
     print1 ("What should I do?")
     answer_action = action_seq(surroundingsrm1)
@@ -841,7 +854,7 @@ def rm_1_interactive():
             print2 ("Going through the door.")
             enter()
             rm_2()
-        elif "hole" in answer_action and "north wall hole" in surroundingsrm1:
+        elif "hole" in answer_action or "wall" in answer_action and "north wall hole" in surroundingsrm1:
             print2 ("Going through the wall.")
             enter()
             rm_2()
@@ -887,6 +900,7 @@ def rm_1_interactive():
         else:
             current_action.clear()
             rm_1_interactive()
+    # leave
     elif "leave" in current_action:
         if "north wall hole" in surroundingsrm1:
             print4 ("The only exit I see is through the" + door_status + " or the hole in the wall to the north.")
@@ -897,6 +911,110 @@ def rm_1_interactive():
         current_action.clear()
         rm_1_interactive()
 
+def rm_2_interactive():
+    if len(inventory) != 0:
+        holding = " holding a " + ''.join(inventory)
+    else:
+        holding = ''
+
+    if "closed door" in surroundingsrm2 and "locked lock" in surroundingsrm2:
+        door_status = " locked door"
+    elif "closed door" in surroundingsrm2:
+        door_status = " closed door"
+    elif "open door" in surroundingsrm2:
+        door_status = "n open door"
+    elif "smashed door" in surroundingsrm2:
+        door_status = " broken door"
+    else:
+        door_status = "n empty doorframe"
+
+    potential_near_me = ["screen", "keypad"]
+    near_me = [value for value in surroundingsrm2 if value in potential_near_me] # gets intersection of lists without using sets
+
+    if "north wall hole" in surroundingsrm1 or "south wall hole" in surroundingsrm2:
+        hole_status = " and a hole in the wall"
+    else:
+        hole_status = ''
+
+    print (surroundingsrm2)
+    print ("I'm" + holding + " in a room with a" + door_status + hole_status + " to the south and a " + make_item_list(near_me) + " near me.")
+    print1 ("What should I do?")
+    answer_action = action_seq(surroundingsrm2)
+    # move
+    if "move" in current_action:
+        current_action.clear()
+        if any(elem in answer_action for elem in south_east) or any(elem in answer_action for elem in south_west):
+            print4 ("There's a wall there. I can't go that way.")
+            rm_2_interactive()
+        elif any(elem in answer_action for elem in south) and "closed door" in surroundingsrm2:
+            print4 ("I can't go through a closed door.")
+            rm_2_interactive()
+        elif any(elem in answer_action for elem in south) and any(elem in surroundingsrm2 for elem in walkable_door):
+            print2 ("Moving south.")
+            enter()
+            rm_2_interactive()
+            print (answer_action)
+        elif "door" in answer_action and any(elem in surroundingsrm2 for elem in walkable_door):
+            print2 ("Going through the door.")
+            enter()
+            rm_2_interactive()
+        elif "hole" in answer_action or "wall" in answer_action and "south wall hole" in surroundingsrm2:
+            print2 ("Going through the wall.")
+            enter()
+            rm_2_interactive()
+        elif "door" in answer_action and "closed door" in surroundingsrm2:
+            print4 ("I can't go through a closed door.")
+            rm_2_interactive()
+        else:
+            print4 ("There's a wall there. I can't go that way.")
+            rm_2_interactive()
+    # hide
+    elif "hide" in current_action:
+        def hide_query():
+            answer = yn_query("> ")
+            if answer:
+                print2("Ok. I don't really see the point, but ok.")
+                enter()
+                def keep_hiding():
+                    hidenumber = random.randint(0,9)
+                    print ("> Time passes.")
+                    print2 ("Should I keep hiding?")
+                    cont_answer = yn_query("> ")
+                    print()
+                    enter()
+                    if cont_answer:
+                        if hidenumber >= 3:
+                            keep_hiding()
+                        else:
+                            print1 ("> Error. Connection timed out.")
+                            game_over()
+                    else:
+                        print4 ("Alright. I'm stepping out from behind the door now.")
+                        rm_2_interactive()
+                keep_hiding()
+            else:
+                print4 ("Alright. I'm stepping out from behind the door now.")
+                rm_2_interactive()
+        if "open door" in surroundingsrm2:
+            print2 ("I'm hiding behind the door, but I don't feel like I'm hidden very well. Should I keep hiding?")
+            hide_query()
+        elif "smashed door" in surroundingsrm2 or "dropped door" in surroundingsrm2 or "door" in inventory:
+            print2 ("I'm hiding under the broken door, and I feel like I'm hidden fairly well. Should I keep hiding?")
+            hide_query()
+        else:
+            current_action.clear()
+            rm_2_interactive()
+    # leave
+    elif "leave" in current_action:
+        if "south wall hole" in surroundingsrm2:
+            print4 ("The only exit I see is through the" + door_status + " or the hole in the wall to the south.")
+        else:
+            print4 ("The only exit I see is through the" + door_status + " to the south.")
+        rm_2_interactive()
+    else:
+        current_action.clear()
+        rm_2_interactive()
+
 # open world room 1 setup
 def rm_1_setup():
     inventory.clear()
@@ -906,6 +1024,28 @@ def rm_1_setup():
     surroundingsrm1.append("closed door")
     surroundingsrm1.append("locked lock")
     rm_1_interactive()
+
+def rm_2_setup():
+    surroundingsrm2.clear()
+    if "closed door" in surroundingsrm1:
+        surroundingsrm2.append("closed door")
+    elif "open door" in surroundingsrm1:
+        surroundingsrm2.append("open door")
+    elif "smashed door" in surroundingsrm1:
+        surroundingsrm2.append("smashed door")
+    elif "doorframe" in surroundingsrm1:
+        surroundingsrm2.append("doorframe")
+    if "locked lock" in surroundingsrm1:
+        surroundingsrm2.append("locked lock")
+    elif "unlocked lock" in surroundingsrm1:
+        surroundingsrm2.append("unlocked lock")
+    elif "smashed lock" in surroundingsrm1:
+        surroundingsrm2.append("smashed lock")
+    if "north wall hole" in surroundingsrm1:
+        surroundingsrm2.append("south wall hole")
+    surroundingsrm2.append("screen")
+    surroundingsrm2.append("keypad")
+    rm_2_interactive()
 
 # scripted room 2
 def rm_2():
@@ -921,6 +1061,8 @@ def rm_2():
     print1 (">>HEY ALEXA!<<")
     print1 ("okireallygottagothanksagain" + playernameused + "bye")
     game_over()
+
+#def rm_2_setup():
 
 #pt_1()
 rm_1_setup()

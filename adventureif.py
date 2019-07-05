@@ -29,36 +29,42 @@ class Player:
         self.inventory = inventory
 
 class DoorState:
-    def __init__(self, breakable, doortype, status, lockstatus, room_list):
-        self.doortype = doortype # breakable, wall, stair
+    def __init__(self, breakable, doortype, doortype_display, status, lockstatus, room_list):
+        self.breakable = breakable # breakable, unbreakable
+        self.doortype = doortype # used for indexing # door, wall, stair
+        self.doortype_display = doortype_display # used for displaying in game (when type is more than one word) # door, wall, stairs
         self.status = status # open, closed, smashed, doorframe, hidden, revealed, blocked
         self.lockstatus = lockstatus # locked, unlocked, smashed, blocked
         self.room_list = room_list
 
 class RoomState:
-    def __init__(self, description, content, major_door, door_list):
+    def __init__(self, description, content, major_door_room, door_list):
         self.description = description
         self.content = content
-        self.major_door = major_door
+        self.major_door_room = major_door_room
         self.door_list = door_list
 
 player = Player('', [], "standard", "standard", "standard", "standard" )
 
 door = {
-    0: DoorState("breakable", "wooden door", "closed", "locked", [0, 1]),
-    1: DoorState("breakable", "wall", "hidden", "blocked", [0, 1]),
-    2: DoorState("unbreakable", "stairs", "hidden", "blocked", [1, 2])
+    #: DoorState(breakable, doortype, doortype_display, status, lockstatus, room_list)
+    0: DoorState("breakable", "door", "door", "closed", "locked", [0, 1]),
+    1: DoorState("breakable", "wall", "wall", "hidden", "blocked", [0, 1]),
+    2: DoorState("unbreakable", "stairs", "stairs", "hidden", "blocked", [1, 2])
 }
 
 room = {
-    0: RoomState("starting room", ["sledgehammer", "lockpick"], 0, [0, 1]),
+    #: RoomState(description, content, major_door_room, door_list)
+    ################################################ change this ↓ to '0'
+    0: RoomState("starting room", ["sledgehammer", "lockpick"], None, [0, 1]),
     1: RoomState("staircase room", ["lever"], 0, [0, 1, 2]),
     2: RoomState("empty", [], None, 2)
 }
 
 current_action = [] # basket for current action (eg move, lock, pickup)
-current_room = []
+current_room = [] # used to continue rm_interactive
 
+# player actions
 travel = ["go", "move", "travel", "proceed", "relocate", "advance", "walk", "run", "step", "jog", "sprint", "ascend", "descend", "climb", "crawl", "sneak"]
 door_unlock = ["unlock", "pick", "unlatch", "unbolt"]
 door_close = ["close", "shut", "slam"]
@@ -86,13 +92,14 @@ unhelpful_cmds = ["nothing", "cry"]
 forcefully_cmd = ["forcefully", "force", "harder"]
 chargeobj_cmds = ["charge", "rush", "bodyslam", "shoulder", "push"]
 
+# door types
 walkable_door = ["open", "smashed", "doorframe"]
 door_in_frame = ["closed", "open", "smashed"]
 smashable_door = ["closed", "open"]
 smashable_lock = ["locked", "unlocked"]
 
 # triggers help
-search_valid = ["idk", "i dont know", "i don't know", "dont know", "don't know", "options", "search", "choices", "help", "how", "what should"]
+search_valid = ["idk", "dont know", "options", "search", "choices", "help", "how", "what should", "what can"]
 
 # prints with a line before and after
 def print2(text):
@@ -125,6 +132,7 @@ def enter():
     getpass.getpass("> Press enter to continue ")
     clear_screen()
 
+# initiates full player death
 def player_death():
     player.health = "dead"
     player.status = "dead"
@@ -133,39 +141,6 @@ def player_death():
 
 # used for yes/no questions
 def yn_query(question, default=None):
-    valid = {"yes": True, "y": True, "ye": True, "ya": True, "yea": True, "yeah": True, "yep": True, "yup": True, "sure": True, "ok": True, "fine": True, "of course": True, "ofc": True, "true": True,
-             "no": False, "n": False, "nope": False, "nah": False, "not yet": False, "retry": False, "false": False}
-    if default is None:
-        prompt = "[y/n]"
-    elif default == "yes":
-        prompt = "[Y/n]"
-    elif default == "no":
-        prompt = "[y/N]"
-    else:
-        prompt = "[y/n]"
-
-    while True:
-        sys.stdout.write(prompt + question)
-        choiceraw = input().lower().strip()
-        choice = stripattern.sub('', choiceraw)
-        if default is not None and choice == '':
-            return valid[default]
-        elif choice in valid:
-            return valid[choice]
-        elif choice in search_valid:
-            sys.stdout.write("\n"
-                             "> You can say 'yes', 'y', 'ye', 'ya', 'yea', 'yeah', 'yep', 'yup', 'sure', 'ok', 'fine', 'of course', 'ofc', and 'true', or "
-                             "'no', 'n', 'nope', 'nah', 'not yet', 'retry', and 'false'.\n"
-                             "> What would you like to say?\n"
-                             "\n")
-        else:
-            sys.stdout.write("\n"
-                             "> Please respond with 'yes' or 'no' "
-                             "(or 'y' or 'n'). Type 'help' to see more options\n"
-                             "\n")
-
-# use for stop/go questions (can also be used for yes/no questions)
-def stopgo_query(question, default=None):
     valid = {"yes": True, "y": True, "ye": True, "ya": True, "yea": True, "yeah": True, "yep": True, "yup": True, "sure": True, "ok": True, "fine": True, "of course": True, "ofc": True, "true": True, "keep going": True, "proceed": True, "start": True, "go": True, "continue": True, "begin": True, "on": True,
              "no": False, "n": False, "nope": False, "nah": False, "not yet": False, "retry": False, "false": False, "stop": False, "halt": False, "finish": False, "end": False, "stay": False, "off": False, "restore": False, "cancel": False}
     if default is None:
@@ -203,7 +178,7 @@ def continuetorm():
         rm_2_interactive()
 
 # used in open world rooms
-def action_seq(surroundings, room_number, door_direction):
+def action_seq(surroundings, room_number, doors, door_direction):
     current_action.clear()
     userinputraw = input("> ").lower().strip()
     choiceraw = stripattern.sub('', userinputraw)
@@ -216,86 +191,194 @@ def action_seq(surroundings, room_number, door_direction):
     fightcommandtype = ''.join(set(choice).intersection(fight_cmd))
     shoutcommandtype = ''.join(set(choice).intersection(shout_cmd))
 
-    door1 = room[room_number].door_list[0]
-    door2 = room[room_number].door_list[1]
-    #door3 = room[room_number].door_list[2]
-    type1 = door[door1].doortype
-    type2 = door[door1].doortype
-    type3 = door[door1].doortype
-    major_door = copy.deepcopy(room[room_number].major_door)
-
-    if major_door == None:
-        if door[door1].status == "hidden":
-            if door[door2].status == "hidden":
-                major_door = None
-            else:
-                major_door = door2
-        elif door[door2].status == "hidden":
-            major_door = door1
-
-    def door_conflict(door_action):
-        nonlocal major_door
-        if any(elem in choice for elem in door_direction):
-            if door_direction[0] != door_direction[1]:
-                print (door_direction[0], door_direction[1])
-                if door_direction[0] in choice:
-                    major_door = door1
-                elif door_direction[1] in choice:
-                    major_door = door2
-        elif any(elem in choice for elem in [type1, type2]):
-            if type1 in choice:
-                major_door = door1
-            elif type2 in choice:
-                major_door = door2
-        elif room[room_number].major_door == None:
-            if door_direction[0] != door_direction[1]:
-                print2 ("I don't know what to " + door_action +". Did you mean the " + type1 + " to the " + door_direction[0] + ", or the " + type2 + " to the " + door_direction[1] + "?")
-                dooranswer = input("> ").lower().strip().split()
-                if door_direction[0] in dooranswer:
-                    major_door = door1
-                elif door_direction[1] in dooranswer:
-                    major_door = door2
-                else:
-                    print4 ("I'm sorry. I don't understand.")
-                    continuetorm
-            else:
-                print2 ("I don't know what to " + door_action +". Did you mean the " + door[door1].doortype + ", or the " + door[door2].doortype + "?")
-                dooranswer = input("> ").lower().strip().split()
-                if door[door1].doortype in dooranswer:
-                    major_door = door1
-                elif door[door2].doortype in dooranswer:
-                    major_door = door2
-                else:
-                    print4 ("I'm sorry. I don't understand.")
-                    continuetorm
-
-    if major_door == None:
-        display_major = door1
+    # creates lists for indexing and reference when choosing major door
+    def doorspec(doorspec):
+        door_type.append(doorspec.doortype)
+        door_type_display.append(doorspec.doortype_display)
+        door_status.append(doorspec.status)
+        door_lockstatus.append(doorspec.lockstatus)
+        if doorspec.status == 'hidden':
+            lock_or_status.append(doorspec.status)
+        elif doorspec.lockstatus == 'locked' or 'blocked' and doorspec.status == 'closed' or 'blocked':
+            lock_or_status.append(doorspec.lockstatus)
+        else:
+            lock_or_status.append(doorspec.status)
+    door0 = door[doors[0]] # abbreviations - makes it easier to read and reference
+    door_type = [door0.doortype]
+    door_type_display = [door0.doortype_display]
+    door_status = [door0.status]
+    door_lockstatus = [door0.lockstatus]
+    # chooses whether to display the lock or door status
+    if door0.status == 'hidden':
+        lock_or_status = [door0.status]
+    elif door0.lockstatus == 'locked' or 'blocked' and door0.status == 'closed' or 'blocked':
+        lock_or_status = [door0.lockstatus]
     else:
-        display_major = major_door
+        lock_or_status = [door0.status]
+    if len(doors) > 1:
+        door1 = door[doors[1]]
+        doorspec(door1)
+    if len(doors) > 2:
+        door2 = door[doors[2]]
+        doorspec(door2)
+    if len(doors) > 3:
+        door3 = door[doors[3]]
+        doorspec(door3)
+    major_door_num = copy.deepcopy(room[room_number].major_door_room)
+
+    # if all doors but one are hidden, make revealed door the major door
+    # also applies if there is only one door
+    major_a_door_status = copy.deepcopy(door_status)
+    major_a_door_status[:] = [x for x in major_a_door_status if x != 'hidden']
+    if len(major_a_door_status) <= 1:
+        major_door_num = door_status.index(''.join(major_a_door_status))
+
+    # picks major door or door for action
+    def door_conflict(door_action):
+        nonlocal major_door_num
+
+        # punctuates a list
+        def make_the_or_list(items):
+            if len(items) == 0:
+                return "something else"
+            elif len(items) == 1:
+                return "the {}".format(items[0])
+            elif len(items) == 2:
+                return "the {}, or the {}".format(items[0], items[1])
+            else:
+                last = items[-1]
+                rest = ", the ".join(items[0:-1])
+                return "the {}, or the {}".format(rest, last)
+
+        type_status_lock_direct = copy.deepcopy(door_type)
+        type_status_lock_direct.extend(door_status)
+        type_status_lock_direct.extend(door_lockstatus)
+        type_status_lock_direct.extend(door_direction)
+        tsld_inter = list(set(choice).intersection(type_status_lock_direct))
+        tsld_list_2 = []
+
+        def damtol(text1sent):
+            mtols = []
+            ############### consider inline if OR make a for loop and avoid repetitious ifs ################
+            if lock_or_status[0] != 'hidden':
+                mtols.append(''.join([lock_or_status[0] + ' ' + door_type_display[0]]) + " to the " + door_direction[0])
+            if lock_or_status[1] != 'hidden':
+                mtols.append(''.join([lock_or_status[1] + ' ' + door_type_display[1]]) + " to the " + door_direction[1])
+            if len(doors) > 2:
+                if lock_or_status[2] != 'hidden':
+                    mtols.append(''.join([lock_or_status[2], door_type_display[2]]) + " to the " + door_direction[2])
+            if len(doors) > 3:
+                if lock_or_status[3] != 'hidden':
+                    mtols.append(''.join([lock_or_status[3], door_type_display[3]]) + " to the " + door_direction[3])
+
+            # if there is more than one available door
+            if len(mtols) > 1:
+                print2 (text1sent + "Did you mean " + make_the_or_list(mtols) + "?")
+                dooranswer = input("> ").lower().strip().split()
+                for mtolx in dooranswer:
+                    if mtolx in door_direction:
+                        major_door_num = door_direction.index(mtolx)
+                    elif mtolx in door_type:
+                        major_door_num = door_type.index(mtolx)
+                    elif mtolx in door_status:
+                        major_door_num = door_status.index(mtolx)
+                    elif mtolx in door_lockstatus:
+                        major_door_num = door_lockstatus.index(mtolx)
+                if major_door_num == None:
+                    print4 ("I'm sorry. I don't understand.")
+                    continuetorm()
+            # if there is one available door
+            else:
+                print2 (text1sent + "Did you mean " + make_the_or_list(mtols) + "?")
+                dooranswer = yn_query("> ", "yes")
+                if dooranswer == True:
+                    for mtolx in make_the_or_list(mtols).split():
+                        if mtolx in door_direction:
+                            major_door_num = door_direction.index(mtolx)
+                    if major_door_num == None:
+                        print4 ("I'm sorry. I don't understand.")
+                        continuetorm()
+                else:
+                    print()
+                    continuetorm()
+
+        # if there is more than 1 door identifier
+        if any(elem in choice for elem in type_status_lock_direct) and len(tsld_inter) > 1:
+            # if both door identifiers identify the same door
+            if len(tsld_inter) == 2 and len(set(tsld_list_2)) == 1:
+                int_val_tsld = tsld_list_2[0]
+                major_door_num = doors[int_val_tsld]
+            # if door identifiers identify different doors
+            else:
+                damtol("Sorry, there's a couple different things you could mean by that. ")
+        # if there is a directional identifier
+        elif any(elem in choice for elem in door_direction):
+            # check that there are no duplicates, which could lead to confusion about which door in said direction is wanted
+            if set(door_direction) == door_direction:
+                for b_direction in door_direction:
+                    if b_direction in choice:
+                        b_door = door_direction.index(b_direction)
+                        major_door_num = doors[b_door]
+        # if there is a type identifier
+        elif any(elem in choice for elem in door_type):
+            # check for duplicates
+            if set(door_type) == door_type:
+                for c_type in door_type:
+                    if c_type in choice:
+                        c_door = door_type.index(c_type)
+                        major_door_num = doors[c_door]
+        # if there is a status identifier
+        elif any(elem in choice for elem in door_status):
+            # check for duplicates
+            if set(door_status) == door_status:
+                for d_status in door_status:
+                    if d_status in choice:
+                        d_door = door_status.index(d_status)
+                        major_door_num = doors[d_door]
+        # if there is a lockstatus identifier
+        elif any(elem in choice for elem in door_lockstatus):
+            # check for duplicates
+            if set(door_lockstatus) == door_lockstatus:
+                for e_lock in door_lockstatus:
+                    if e_lock in choice:
+                        e_door = door_lockstatus.index(e_lock)
+                        major_door_num = doors[e_door]
+        # if there is no recognized identifier
+        else:
+            damtol("I don't know what to " + door_action +". ")
+
+    if major_door_num == None:
+        display_major = door0
+    else:
+        display_major = door[major_door_num]
+        major_door = door[major_door_num]
 
     # door status
-    if door[display_major].status == "closed" and door[display_major].lockstatus == "locked":
-        door_status = "a locked door"
-    elif door[display_major].status == "closed":
-        door_status = "a closed door"
-    elif door[display_major].status == "open":
-        door_status = "an open door"
-    elif door[display_major].status == "smashed":
-        door_status = "a broken door"
-    elif door[display_major].status == "doorframe":
-        door_status = "a doorframe"
-    elif door[display_major].status == "hidden":
-        door_status = "a door that doesn't exist"
-    elif door[display_major].status == "revealed" or door[display_major].status == "blocked":
-        door_status = "that"
+    if display_major.doortype == "wall":
+        door_status_display = "a wall"
+    elif display_major.doortype == "stairs":
+        door_status_display = "a flight of stairs"
+    elif display_major.status == "closed" and display_major.lockstatus == "locked":
+        door_status_display = "a locked door"
+    elif display_major.status == "closed":
+        door_status_display = "a closed door"
+    elif display_major.status == "open":
+        door_status_display = "an open door"
+    elif display_major.status == "smashed":
+        door_status_display = "a broken door"
+    elif display_major.status == "doorframe":
+        door_status_display = "a doorframe"
+    elif display_major.status == "hidden":
+        door_status_display = "a door that doesn't exist"
+    elif display_major.status == "revealed" or display_major.status == "blocked":
+        door_status_display = "that"
     else:
-        door_status = " INVALID_DOOR_STATUS"
+        door_status_display = " INVALID_DOOR_STATUS"
 
     # if no command
     if userinputraw == '':
         print2 ("Whoops! You forgot to tell me what to do. If you don't know what to do, just type 'help'.")
-        action_seq(surroundings, room_number, door_direction)
+        action_seq(surroundings, room_number, doors, door_direction)
     # help
     elif any(elem in choice for elem in search_valid):
         current_action.append("help")
@@ -304,7 +387,8 @@ def action_seq(surroundings, room_number, door_direction):
         elif any(elem in choice for elem in rmv_inventory):
             print4 ("To drop an object, you can say 'drop' or 'remove'. You don't need to specify the object, as I can only carry one thing at a time.")
         elif any(elem in choice for elem in travel):
-            print4 ("To have me travel in a specific direction, you can say 'go', 'move', 'travel', 'proceed', 'relocate', 'walk', 'run', 'step', 'jog', or 'sprint', followed by a direction. I can also travel to a specific thing, so you can say 'go sw', 'go southwest', or 'go through the door'. To see a list of valid directions, type 'help directions'.")
+            print4 ("To have me travel in a specific direction, you can say 'go', 'move', 'travel', 'proceed', 'relocate', 'walk', 'run', 'step', 'jog', or 'sprint', followed by a direction. "
+                    "I can also travel to a specific thing, so you can say 'go sw', 'go southwest', or 'go through the door'. To see a list of valid directions, type 'help directions'.")
         elif "directions" in choice:
             print4 ("I can go in any of the eight major compass points: north (or n), east (e), west (w), south (s), northeast (ne, north-east), northwest (nw, north-west), southeast (se, south-east), or southwest (sw, south-west).")
         elif "open" in choice:
@@ -312,11 +396,13 @@ def action_seq(surroundings, room_number, door_direction):
         elif any(elem in choice for elem in door_close):
             print4 ("To have me close a door, you can say 'close', 'shut', or 'slam'. For example, say 'shut the door' to have me shut the door.")
         elif any(elem in choice for elem in smash_cmd):
-            print4 ("To have me smash something, you can say 'smash', 'bash', 'destroy', or 'break'. For example, say 'smash the door open' to have me smash the door open. However, keep in mind that I need a sledgehammer to smash something, so make sure I've picked one up or mention it in your command, like 'smash the door open with the sledgehammer'.")
+            print4 ("To have me smash something, you can say 'smash', 'bash', 'destroy', or 'break'. For example, say 'smash the door open' to have me smash the door open. "
+                    "However, keep in mind that I need a sledgehammer to smash something, so make sure I've picked one up or mention it in your command, like 'smash the door open with the sledgehammer'.")
         elif any(elem in choice for elem in door_unlock):
             print4 ("To have me unlock a door, you can say 'unlock' or 'pick'. For example, say 'pick the lock' to have me unlock a door. Keep in mind that I need a lockpick to unlock something, so make sure I've picked one up or mention it in your command, like 'unlock the door with the lockpick'.")
         elif any(elem in choice for elem in door_lock):
-            print4 ("To have me lock a door, just say 'lock the door', or 'lock the lock'. Keep in mind that if I lock an open door and then shut it, I will have to unlock it to open it again. I also need a lockpick to lock something, so make sure I've picked one up or mention it in your command, like 'lock the lock with the lockpick'.")
+            print4 ("To have me lock a door, just say 'lock the door', or 'lock the lock'. Keep in mind that if I lock an open door and then shut it, I will have to unlock it to open it again. "
+                    "I also need a lockpick to lock something, so make sure I've picked one up or mention it in your command, like 'lock the lock with the lockpick'.")
         elif "sleep" in choice:
             print4 ("To have me go to sleep, just say 'sleep'. However, I am a very deep sleeper, so keep in mind that I might not wake up when messaged.")
         elif any(elem in choice for elem in hide_cmds):
@@ -340,16 +426,16 @@ def action_seq(surroundings, room_number, door_direction):
             door_conflict("pick up")
             if 'door' in player.inventory:
                 print4 ("I'm already holding the door.")
-            elif door[major_door].status == "smashed" and len(player.inventory) == 0:
+            elif major_door.status == "smashed" and len(player.inventory) == 0:
                 player.inventory.append("door")
-                door[major_door].status = "doorframe"
+                major_door.status = "doorframe"
                 print4 ("I've picked up a door.")
             elif 'door' in room[room_number].content and len(player.inventory) == 0:
                 player.inventory.append("door")
                 room[room_number].content.remove("door")
                 print4 ("I've picked up a door.")
-            elif door[major_door].status != "smashed":
-                print4 ("I can't pick up " + door_status +".")
+            elif major_door.status != "smashed":
+                print4 ("I can't pick up " + door_status_display +".")
             else:
                 print4 ("Sorry, I can't find anything like that around here.")
         else:
@@ -388,7 +474,7 @@ def action_seq(surroundings, room_number, door_direction):
             return "door"
         elif any(elem in choice for elem in stairssyn):
             door_conflict("go up")
-            if door[major_door].doortype == "stair":
+            if major_door.doortype == "stair":
                 return "stairs"
             else:
                 print4 ("Sorry, I can't see any stairs around here.")
@@ -414,25 +500,26 @@ def action_seq(surroundings, room_number, door_direction):
             print4 ("Nothing happened. It's a floor. Don't know what you expected.")
         else:
             print4 ("I knocked on the door. Nothing happened.")
+    ###################### IMPLEMENT BREAKABLE/UNBREAKABLE ########################
     # smash
     elif any(elem in choice for elem in smash_cmd):
         current_action.append("smash")
         def smash_something():
             door_conflict("smash")
             if "lock" in choice:
-                if door[major_door].lockstatus == "smashed":
+                if major_door.lockstatus == "smashed":
                     print4 ("The lock is already broken open.")
-                elif door[major_door].status == "smashed":
+                elif major_door.status == "smashed":
                     print4 ("The door is already broken open.")
                 elif "sledgehammer" not in player.inventory and "sledgehammer" not in choice:
                     print4 ("I don't have anything to smash the lock with.")
-                elif door[major_door].lockstatus in smashable_lock:
+                elif major_door.lockstatus in smashable_lock:
                     if "sledgehammer" in player.inventory:
-                        door[major_door].lockstatus = "smashed"
+                        major_door.lockstatus = "smashed"
                         print4 ("I've smashed the lock.")
                     elif "sledgehammer" in choice:
                         if "sledgehammer" in room[room_number].content:
-                            door[major_door].lockstatus = "smashed"
+                            major_door.lockstatus = "smashed"
                             print4 ("I've smashed the lock.")
                         else:
                             print4 ("I can't see a sledgehammer anywhere near me.")
@@ -482,13 +569,13 @@ def action_seq(surroundings, room_number, door_direction):
                         print4 ("Alright. What should I do instead?")
                         continuetorm()
                     else:
-                        print ()
+                        print () ################## get rid of this?
                         enter()
                         def smash_death():
                             print ("> Time passes, the seconds punctuated with discordant and heavy thuds.")
                             print2 ("I'm getting quite a few cracks here. Should I keep going?")
                             cont_answer = yn_query("> ")
-                            if cont_answer:
+                            if cont_answer == True:
                                 print2 ("Alright. Here goes.")
                                 enter()
                                 player_death()
@@ -499,19 +586,19 @@ def action_seq(surroundings, room_number, door_direction):
                                 print4 ("Alright. What should I do instead?")
                                 continuetorm()
                         smash_death()
-            elif door[major_door].status == "smashed":
+            elif major_door.status == "smashed":
                 print4 ("The door is already broken open.")
             elif "sledgehammer" not in player.inventory and "sledgehammer" not in choice:
                 print4 ("I don't have anything to smash the door with.")
-            elif door[major_door].status in smashable_door:
+            elif major_door.status in smashable_door:
                 if "sledgehammer" in player.inventory:
-                    door[major_door].status = "smashed"
-                    door[major_door].lockstatus = None
+                    major_door.status = "smashed"
+                    major_door.lockstatus = None
                     print4 ("I've smashed the door.")
                 elif "sledgehammer" in choice:
                     if "sledgehammer" in surroundings:
-                        door[major_door].status = "smashed"
-                        door[major_door].lockstatus = None
+                        major_door.status = "smashed"
+                        major_door.lockstatus = None
                         print4 ("I've smashed the door.")
                     else:
                         print4 ("I can't see a sledgehammer anywhere near me.")
@@ -524,19 +611,19 @@ def action_seq(surroundings, room_number, door_direction):
     elif any(elem in choice for elem in door_unlock):
         current_action.append("unlock")
         door_conflict("unlock")
-        if door[major_door].lockstatus == "unlocked":
+        if major_door.lockstatus == "unlocked":
             print4 ("The door is already unlocked.")
-        elif door[major_door].status == "smashed":
+        elif major_door.status == "smashed":
             print4 ("The door is already broken open.")
-        elif door[major_door].lockstatus == "smashed":
+        elif major_door.lockstatus == "smashed":
             print4 ("The lock is already broken open.")
-        elif door[major_door].lockstatus == "locked":
+        elif major_door.lockstatus == "locked":
             if "lockpick" in player.inventory or "lockpick" in choice:
-                door[major_door].lockstatus = "unlocked"
+                major_door.lockstatus = "unlocked"
                 print4 ("I've unlocked the door.")
             elif any(elem in choice for elem in [door_lock, "door"]) and "lockpick" in choice:
                 if "lockpick" in room[room_number].content:
-                    door[major_door].lockstatus = "unlocked"
+                    major_door.lockstatus = "unlocked"
                     print4 ("I've unlocked the door.")
                 else:
                     print4 ("I can't see a lockpick anywhere near me.")
@@ -548,13 +635,13 @@ def action_seq(surroundings, room_number, door_direction):
     elif any(elem in choice for elem in door_lock):
         current_action.append("lock")
         door_conflict("lock")
-        if door[major_door].lockstatus == "unlocked":
+        if major_door.lockstatus == "unlocked":
             if "lockpick" in player.inventory:
-                door[major_door].lockstatus = "locked"
+                major_door.lockstatus = "locked"
                 print4 ("I've locked the door.")
             elif any(elem in choice for elem in [door_lock, "door"]) and "lockpick" in choice:
                 if "lockpick" in room[room_number].content:
-                    door[major_door].lockstatus = "locked"
+                    major_door.lockstatus = "locked"
                     print4 ("I've locked the door.")
                 else:
                     print4 ("I can't see a lockpick anywhere near me.")
@@ -562,29 +649,29 @@ def action_seq(surroundings, room_number, door_direction):
                 print4 ("I don't have anything to pick the lock with.")
             else:
                 print4 ("I don't understand.")
-        elif door[major_door].lockstatus == "locked":
+        elif major_door.lockstatus == "locked":
             print4 ("The door is already locked.")
-        elif door[major_door].status == "smashed":
+        elif major_door.status == "smashed":
             print4 ("The door is broken open.")
-        elif door[major_door].lockstatus == "smashed":
+        elif major_door.lockstatus == "smashed":
             print4 ("The lock is broken open.")
     # open door
     elif "open" in choice:
         current_action.append("open")
         door_conflict("open")
-        if door[major_door].status == "open":
+        if major_door.status == "open":
             print4 ("The door is already open.")
-        elif door[major_door].status == "smashed":
+        elif major_door.status == "smashed":
             print4 ("The door is already broken open.")
-        elif door[major_door].status == "closed":
-            if door[major_door].lockstatus == "locked":
+        elif major_door.status == "closed":
+            if major_door.lockstatus == "locked":
                 if any(elem in choice for elem in forcefully_cmd):
                     print4 ("The lock refuses to budge.")
                 else:
                     print4 ("The door is locked.")
-            elif door[major_door].lockstatus == "unlocked" or door[major_door].lockstatus == "smashed":
+            elif major_door.lockstatus == "unlocked" or major_door.lockstatus == "smashed":
                 if len(player.inventory) == 0:
-                    door[major_door].status = "open"
+                    major_door.status = "open"
                     print4 ("I've opened the door.")
                 else:
                     print4 ("I can't open the door while I'm holding something.")
@@ -594,14 +681,14 @@ def action_seq(surroundings, room_number, door_direction):
     elif any(elem in choice for elem in door_close):
         current_action.append("close")
         door_conflict("close")
-        if door[major_door].status == "closed":
+        if major_door.status == "closed":
             print4 ("The door is already shut.")
-        elif door[major_door].status == "smashed":
+        elif major_door.status == "smashed":
             print4 ("The door is broken open.")
-        elif len(player.inventory) == 0 and door[major_door].status == "closed":
-            door[major_door].status = "closed"
+        elif len(player.inventory) == 0 and major_door.status == "closed":
+            major_door.status = "closed"
             print4 ("I've closed the door.")
-        elif len(player.inventory) != 0 and door[major_door].status == "open":
+        elif len(player.inventory) != 0 and major_door.status == "open":
             print4 ("I can't shut the door while I'm holding something.")
         else:
             print4 ("Sorry, I can't see a door anywhere around here.")
@@ -619,7 +706,7 @@ def action_seq(surroundings, room_number, door_direction):
     elif any(elem in choice for elem in hide_cmds):
         current_action.append("hide")
         door_conflict("hide behind")
-        if door[major_door].status == "open" or door[major_door].status == "smashed" or "door" in player.inventory or "door" in room[room_number].content:
+        if major_door.status == "open" or major_door.status == "smashed" or "door" in player.inventory or "door" in room[room_number].content:
             return "hide"
         else:
             print4 ("I can't see anything to hide behind.")
@@ -648,7 +735,7 @@ def action_seq(surroundings, room_number, door_direction):
     # fight
     elif any(elem in choice for elem in fight_cmd):
         innocent_object = None
-        x = fight_cmd.index(fightcommandtype)
+        fight_command_fin = fight_cmd_past[fight_cmd.index(fightcommandtype)]
         if "kick" in choice:
             limb = "foot"
         else:
@@ -667,9 +754,9 @@ def action_seq(surroundings, room_number, door_direction):
             innocent_object = None
         if any(elem in choice for elem in chargeobj_cmds):
             door_conflict("smash")
-            if "door" in choice and door[major_door].status in door_in_frame:
+            if "door" in choice and major_door.status in door_in_frame:
                 print4 ("I charged the door. Nothing happened. My shoulder, however, is in a fair amount of pain.")
-            elif "door" in choice and door[major_door].status not in door_in_frame:
+            elif "door" in choice and major_door.status not in door_in_frame:
                 print4 ("I don't see a door I could shoulder open.")
             elif "wall" in choice:
                 print4 ("I charged the wall. Nothing happened. My shoulder, however, is in a fair amount of pain.")
@@ -677,17 +764,17 @@ def action_seq(surroundings, room_number, door_direction):
             if "sledgehammer" in choice or "sledgehammer" in player.inventory:
                 smash_something()
             else:
-                print4 ("I " + fight_cmd_past[x] + " the " + innocent_object + ". My " + limb + " hurts.")
+                print4 ("I " + fight_command_fin + " the " + innocent_object + ". My " + limb + " hurts.")
         elif innocent_object == None:
             if "self" in choice or "yourself" in choice:
                 print4 ("What?! No! I'm not hitting myself without a very good reason.")
             else:
                 print4 (fightcommandtype.capitalize() + " what? There's nothing there!")
         else:
-            print4 ("I " + fight_cmd_past[x] + " the " + innocent_object + ". My " + limb + " hurts.")
+            print4 ("I " + fight_command_fin + " the " + innocent_object + ". My " + limb + " hurts.")
     # shout
     elif any(elem in choice for elem in shout_cmd):
-        x = shout_cmd.index(shoutcommandtype)
+        shout_cmd_fin = shout_cmd_past[shout_cmd.index(shoutcommandtype)]
         if "door" in choice:
             innocent_object = "door"
         elif "wall" in choice:
@@ -702,11 +789,11 @@ def action_seq(surroundings, room_number, door_direction):
         else:
             innocent_object = "void"
         if innocent_object == None:
-            print4 ("I " + shout_cmd_past[x] + " at the innocent inanimate objects. They seem remarkably unmoved. At least for innocent inanimate objects.")
+            print4 ("I " + shout_cmd_fin + " at the innocent inanimate objects. They seem remarkably unmoved. At least for innocent inanimate objects.")
         elif innocent_object == "void":
-            print4 ("I " + shout_cmd_past[x] + " into the void, and all I heard in response was the echoes of my own voice. \n...that's depressing. Moving on!")
+            print4 ("I " + shout_cmd_fin + " into the void, and all I heard in response was the echoes of my own voice. \n...that's depressing. Moving on!")
         else:
-            print4 ("I " + shout_cmd_past[x] + " at the " + innocent_object + ". It seems remarkably unmoved. At least for a " + innocent_object + ".")
+            print4 ("I " + shout_cmd_fin + " at the " + innocent_object + ". It seems remarkably unmoved. At least for a " + innocent_object + ".")
     # say hi
     elif any(elem in choice for elem in greetings):
         if "door" in choice:
@@ -746,7 +833,7 @@ def action_seq(surroundings, room_number, door_direction):
         else:
             print2 ("Wait. Are you leaving?")
             leaving_answer = yn_query("> ")
-            if leaving_answer:
+            if leaving_answer == True:
                 print2 ("Well then. Goodbye, I guess.")
                 disconnecting()
             else:
@@ -758,9 +845,9 @@ def action_seq(surroundings, room_number, door_direction):
     elif any(elem in choice for elem in unhelpful_cmds):
         print2 ("Wow. You're sooooo helpful. Wanna try again?")
         helpful = yn_query("> ")
-        if helpful:
+        if helpful == True:
             print2 ("Cool. Let's get to it.")
-        elif not helpful:
+        else:
             print2 ("Alright. You're clearly not going to be any help. Bye.")
             game_over()
     # alexa
@@ -787,11 +874,11 @@ def player_name(question):
         print2 (playernameinput.capitalize() + ". I like it. I think.")
         print ("> Press enter to continue or type 'retry' to enter your name again")
         player.name = playernameinput.capitalize()
-        answer = stopgo_query("> ", "yes")
-        if answer:
+        answer = yn_query("> ", "yes")
+        if answer == True:
             clear_screen()
             pt_5()
-        if not answer:
+        else:
             print ()
             player_name(question)
 
@@ -815,26 +902,26 @@ def game_over():
 def disconnecting():
     print ("> Disconnecting in 3...")
     print2 ("> Press enter to continue or 'stop' to cancel disconnection")
-    answer = stopgo_query("> ", "yes")
-    if answer:
+    answer = yn_query("> ", "yes")
+    if answer == True:
         clear_screen()
         print1 ("> ...2...")
-        answer = stopgo_query("> ", "yes")
-        if answer:
+        answer = yn_query("> ", "yes")
+        if answer == True:
             clear_screen()
             print1 ("> ...1...")
-            answer = stopgo_query("> ", "yes")
-            if answer:
+            answer = yn_query("> ", "yes")
+            if answer == True:
                 clear_screen()
                 print1 ("> Connection lost.")
                 game_over()
-            if not answer:
+            else:
                 print2 ("> Connection corrupted. Unable to restore.")
                 game_over()
-        if not answer:
+        else:
             print2 ("> Connection corrupted. Attempt to restore?")
             answer = yn_query("> ")
-            if answer:
+            if answer == True:
                 clear_screen()
                 print1 ("> Attempting to restore connection...")
                 enter()
@@ -848,9 +935,9 @@ def disconnecting():
                     enter()
                     print ("Oh, you're back.")
                     disconnecting = False
-            if not answer:
+            else:
                 game_over()
-    if not answer:
+    else:
         print2 ("> Connection restored.")
         enter()
         print ("Oh, you're back.")
@@ -905,9 +992,9 @@ def pt_3():
     print ("Oh! Oh my god, I wasn't expecting an answer, not after this long.")
     print1 ("Can you hear me?")
     answer = yn_query("> ")
-    if answer:
+    if answer == True:
         print2 ("You can hear me!")
-    if not answer:
+    else:
         print2 ("Wait. You can hear me, or you wouldn't have answered!")
     enter()
     print1 ("No one's been able to hear me before.")
@@ -923,22 +1010,22 @@ def pt_4():
 def pt_5():
     print1 ("Can you help me find out where I am?")
     answer = yn_query("> ")
-    if answer:
+    if answer == True:
         print4 ("Ok then! Let's do this.")
         print ("I woke up here. Don't know where here is, just what it looks like.")
         rm_1_setup()
-    if not answer:
+    else:
         print2 ("Oh. Ok. Goodbye.")
         enter ()
         disconnected = disconnecting()
-        if not disconnected:
+        if disconnected == True:
+            game_over()
+        else:
             print ()
             pt_5()
-        if disconnected:
-            game_over()
 
-# punctuates a list with commas and 'and'
-def make_item_list(items, phrase):
+# punctuates a list
+def make_a_and_list(items, phrase):
     if len(items) == 0:
         return "nothing else" + phrase
     elif len(items) == 1:
@@ -961,19 +1048,19 @@ def rm_1_interactive():
 
     article = ''
     if door[0].status == "closed" and door[0].lockstatus == "locked":
-        door_status = " locked door"
+        door_status_display = " locked door"
     elif door[0].status == "closed":
-        door_status = " closed door"
+        door_status_display = " closed door"
     elif door[0].status == "open":
         article = "n"
-        door_status = " open door"
+        door_status_display = " open door"
     elif door[0].status == "smashed":
-        door_status = " broken door"
+        door_status_display = " broken door"
     elif door[0].status == "doorframe":
         article = "n"
-        door_status = " empty doorframe"
+        door_status_display = " empty doorframe"
     else:
-        door_status = " INVALID_DOOR_STATE"
+        door_status_display = " INVALID_DOOR_STATE"
 
     potential_near_me = ["sledgehammer", "lockpick", "door"]
     near_me = [value for value in room[0].content if value in potential_near_me] # gets intersection of lists without using sets
@@ -981,9 +1068,9 @@ def rm_1_interactive():
     hole_status = " and a hole in the wall" if door[1].status != "hidden" else ''
     comma = "," if door[1].status != "hidden" else ''
 
-    print ("I'm" + holding + " in a room with a" + article + door_status + hole_status + " to the north" + comma + " and " + make_item_list(near_me, " near me."))
+    print ("I'm" + holding + " in a room with a" + article + door_status_display + hole_status + " to the north" + comma + " and " + make_a_and_list(near_me, " near me."))
     print1 ("What should I do?")
-    answer_action = action_seq(room[0].content, 0, ["north", "north"])
+    answer_action = action_seq(room[0].content, 0, [0, 1], ["north", "north"])
     # move
     if "move" in current_action:
         current_action.clear()
@@ -1016,7 +1103,7 @@ def rm_1_interactive():
     elif "hide" in current_action:
         def hide_query():
             answer = yn_query("> ")
-            if answer:
+            if answer == True:
                 print2("Ok. I don't really see the point, but ok.")
                 enter()
                 def keep_hiding():
@@ -1026,7 +1113,7 @@ def rm_1_interactive():
                     cont_answer = yn_query("> ")
                     print()
                     enter()
-                    if cont_answer:
+                    if cont_answer == True:
                         if hidenumber >= 3:
                             keep_hiding()
                         else:
@@ -1051,7 +1138,7 @@ def rm_1_interactive():
     # leave
     elif "leave" in current_action:
         hole_status = " or the hole in the wall" if "north wall hole" in room[0].content else ''
-        print4 ("The only exit I see is through the" + door_status + hole_status + " to the north.")
+        print4 ("The only exit I see is through the" + door_status_display + hole_status + " to the north.")
         rm_1_interactive()
     else:
         current_action.clear()
@@ -1067,28 +1154,28 @@ def rm_2_interactive():
 
     article = ''
     if door[0].status == "closed" and door[0].lockstatus == "locked":
-        door_status = " locked door"
+        door_status_display = " locked door"
     elif door[0].status == "closed":
-        door_status = " closed door"
+        door_status_display = " closed door"
     elif door[0].status == "open":
         article = "n"
-        door_status = " open door"
+        door_status_display = " open door"
     elif door[0].status == "smashed":
-        door_status = " broken door"
+        door_status_display = " broken door"
     elif door[0].status == "doorframe":
         article = "n"
-        door_status = " empty doorframe"
+        door_status_display = " empty doorframe"
     else:
-        door_status = " INVALID_DOOR_STATE"
+        door_status_display = " INVALID_DOOR_STATE"
 
     potential_near_me = ["lockpick", "sledgehammer", "door"]
     near_me = [value for value in room[1].content if value in potential_near_me] # gets intersection of lists without using sets
 
     hole_status = " and a hole in the wall" if door[1].status != "hidden" else ''
 
-    print ("I'm" + holding + " in a room with a" + article + door_status + hole_status + " to the south, a lever in the middle of the room, and " + make_item_list(near_me, " near me."))
+    print ("I'm" + holding + " in a room with a" + article + door_status_display + hole_status + " to the south, a lever in the middle of the room, and " + make_a_and_list(near_me, " near me."))
     print1 ("What should I do?")
-    answer_action = action_seq(room[1].content, 1, ["south", "south" "north"])
+    answer_action = action_seq(room[1].content, 1, [0, 1, 2], ["south", "south" "north"])
     # move
     if "move" in current_action:
         current_action.clear()
@@ -1143,7 +1230,7 @@ def rm_2_interactive():
     elif "hide" in current_action:
         def hide_query():
             answer = yn_query("> ")
-            if answer:
+            if answer == True:
                 print2("Ok. I don't really see the point, but ok.")
                 enter()
                 def keep_hiding():
@@ -1153,7 +1240,7 @@ def rm_2_interactive():
                     cont_answer = yn_query("> ")
                     print()
                     enter()
-                    if cont_answer:
+                    if cont_answer == True:
                         if hidenumber >= 3:
                             keep_hiding()
                         else:
@@ -1179,7 +1266,7 @@ def rm_2_interactive():
     elif "leave" in current_action:
         hole_status = " or the hole in the wall" if "south wall hole" in room[1].content else ''
         stair_status = " or the stairs to the north" if door[2].status != "hidden" else ''
-        print4 ("The only exit I see is through the" + door_status + hole_status + " to the south" + stair_status + ".")
+        print4 ("The only exit I see is through the" + door_status_display + hole_status + " to the south" + stair_status + ".")
         rm_2_interactive()
     else:
         current_action.clear()
